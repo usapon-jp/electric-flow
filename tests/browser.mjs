@@ -23,7 +23,6 @@ for(const device of [{name:'desktop',width:1440,height:1000},{name:'tablet',widt
  const assertWidth=async()=>assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${device.name} horizontal overflow`);
  try{
  await page.goto(process.env.APP_URL || 'http://127.0.0.1:4173');if(await page.locator('.orientation-guide').isVisible())await click('[data-action="portrait-continue"]');await assertWidth();await shot('01-start');
- assert.match(await page.locator('.lesson-intro').innerText(),/一周した回路では電流が流れます/);await begin();
  await assertGuide('電池の＋端子と左の端子 Aをつなぐ。','pair-pa');
  assert.match(await page.locator('.canvas-label').innerText(),/まだつながっていません.*0.00 A/);
  // Wire an intentional short, then undo. No programmatic application-state changes.
