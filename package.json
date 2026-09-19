@@ -1,0 +1,15 @@
+{
+  "name": "electric-flow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "node server.mjs",
+    "test": "node --test tests/physics.test.js",
+    "test:e2e": "node tests/browser.mjs",
+    "test:landscape": "node tests/landscape.mjs",
+    "test:rotation": "node tests/rotation.mjs",
+    "build": "node scripts/build.mjs"
+  }
+}

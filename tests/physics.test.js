@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {solveCircuit,measuredVoltage,SINGLE_WIRES} from '../src/physics.js';
+const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-9,`${a} != ${b}`);
+test('closed circuit, open switch and wire break',()=>{close(solveCircuit({}).current,.2);close(solveCircuit({closed:false}).current,0);close(solveCircuit({wires:SINGLE_WIRES.slice(1)}).current,0);});
+test('unequal series resistors preserve current and split voltage',()=>{const r=solveCircuit({topology:'series',voltage:3,resistance:10,secondResistance:20});close(r.current,.1);close(r.currents.lamp1,r.currents.lamp2);close(measuredVoltage(r,['a','b']),1);close(measuredVoltage(r,['c','d']),2);});
+test('parallel branches add currents and share voltage',()=>{const r=solveCircuit({topology:'parallel',voltage:3,resistance:10,secondResistance:20});close(r.current,.45);close(r.currents.lamp1,.3);close(r.currents.lamp2,.15);close(measuredVoltage(r,['a','b']),3);close(measuredVoltage(r,['c','d']),3);});
+test('removing a series lamp interrupts all current, parallel preserves other branch',()=>{close(solveCircuit({topology:'series',removed:true}).current,0);const r=solveCircuit({topology:'parallel',removed:true});close(r.current,.2);close(r.currents.lamp1,.2);});
+test('short circuits are stopped instead of generating infinite values',()=>{const r=solveCircuit({wires:[['p','n']]});assert.equal(r.short,true);assert.equal(r.current,0);assert.equal(measuredVoltage(r,['p','n']),null);});
+test('same conductor measures zero, battery has voltage when open',()=>{close(measuredVoltage(solveCircuit({}),['p','a']),0);close(measuredVoltage(solveCircuit({closed:false}),['p','n']),1.5);});
+test('Ohm graph points are proportional and inverse resistance works',()=>{for(const voltage of [1,2,3,4,5])close(solveCircuit({voltage,resistance:10}).current,voltage/10);close(solveCircuit({voltage:3,resistance:20}).current,.15);});
+test('load power matches source power for the supported topologies',()=>{for(const topology of ['single','series','parallel']){const r=solveCircuit({topology,voltage:3,resistance:10,secondResistance:20});close(Object.values(r.powers).reduce((a,b)=>a+b,0),3*r.current);}});
