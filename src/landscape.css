@@ -37,9 +37,9 @@
  /* Browser chrome can leave a phone with barely 300px of usable height. Keep the
     lesson name, readings, and controls, but give the laboratory the priority. */
  .site-header{height:32px;flex-basis:32px}.brand>span{font-size:14px}.site-header nav{gap:18px;margin-right:12px}.site-header nav button{min-height:30px;padding:5px 0;font-size:10px}.menu-button{height:30px;width:30px}
- main{grid-template-rows:0 34px minmax(0,1fr) 0 38px 0 0}.title-row{min-height:0}.title-row h1{font-size:16px;line-height:1.2;white-space:nowrap}.title-row .subtitle,.title-row .hint-button{display:none}
+ main{grid-template-rows:0 34px minmax(0,1fr) 0 38px 0 0}.title-row{min-height:0}.title-row h1{font-size:16px;line-height:1.2;white-space:nowrap}.title-row .subtitle{display:none}.title-row .hint-button{display:flex;min-height:28px;width:32px;padding:0;justify-content:center}.title-row .hint-button span{display:none}
  .canvas-toolbar{flex-basis:30px;height:30px;padding:1px 8px 0}.canvas-label{font-size:8px}.view-toggle button{min-height:24px;padding:3px 8px}.circuit-readings{flex:0 0 27px;height:27px;overflow:hidden;align-items:center;padding:2px 8px;gap:18px;line-height:1}.circuit-readings b{font-size:17px;line-height:1}.canvas-bottom{position:absolute;right:2px;bottom:0;z-index:2;height:23px;flex-basis:auto;padding:0}.canvas-bottom>span{display:none}.canvas-actions .icon-button{height:23px;width:29px}
- .lesson-footer{min-height:38px;padding:2px 0}.lesson-insight{display:none}.next-button{min-height:32px;padding:5px 15px}.feedback{display:none}
+ .lesson-footer{min-height:38px;padding:2px 0}.lesson-insight{display:block;max-width:calc(100% - 118px);overflow:hidden}.lesson-insight p{display:none}.lesson-insight .quiet-label{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px}.next-button{min-height:32px;padding:5px 15px}.feedback{display:none}
  .circuit-wrap{padding:0 4px 18px}
  .circuit-svg .terminal-hit{r:49px}
  .stage-4 .checklist,.stage-5 .checklist{margin:3px 0;gap:3px}.stage-5 .check-item{font-size:9px}.stage-5 .check-item>span{width:12px;height:12px}.stage-5 .choices{margin:3px 0}.stage-5 .mini-question{font-size:10px}.stage-5 .segmented{margin-top:0}.stage-5 .quiet-note{display:none}

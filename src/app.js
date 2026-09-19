@@ -42,6 +42,55 @@ const model=()=>solveCircuit({...s,secondResistance:s.stage===5?15:s.resistance}
 function save(){try{localStorage.setItem(KEY,JSON.stringify({version:1,state:s,completed,stageStates}));saveAvailable=true;}catch{saveAvailable=false;}}
 function recordVoltage(result){if(s.probes.length!==2||result.short||result.current<=0)return;const v=measuredVoltage(result,s.probes);if(v===null)return;const pairs={battery:['p','n'],lamp1:['a','b'],lamp2:['c','d'],wire:['p','a']};for(const [key,pair] of Object.entries(pairs))if(sameEdge(pair,s.probes))s.records[`${s.topology}-V-${key}`]=v;}
 const recorded=k=>s.records[k]!==undefined;
+function guide(){
+ const next=(text,target)=>({text,target});
+ switch(s.stage){
+ case 0:{
+  const wires=[['p','a','電池の＋端子と左の端子 Aをつなぐ。','pair-pa'],['b','sr','右の端子 Bとスイッチの右端子をつなぐ。','pair-bsr'],['sl','n','スイッチの左端子と電池の−端子をつなぐ。','pair-sln']];
+  const missing=wires.find(([a,b])=>!s.wires.some(w=>sameEdge(w,[a,b])));
+  return missing?next(missing[2],missing[3]):!s.closed?next('スイッチを閉じて、電球を観察する。','switch'):next('次の実験へ進む。','next');
+ }
+ case 1:
+  if(!s.answers.flow)return next('予想を一つ選び、回路で確かめる。','prediction');
+  if(!has('opened'))return next('スイッチを開いて、電球を観察する。','switch');
+  if(!has('reclosed'))return next('スイッチを閉じ直して、変化を観察する。','switch');
+  return !has('diagram')?next('「回路図」を表示して見くらべる。','diagram'):next('次の実験へ進む。','next');
+ case 2:
+  if(!recorded('single-before'))return next('電流計で、電球の前をはかる。','slot-before');
+  if(!recorded('single-after'))return next('電流計で、電球の後をはかる。','slot-after');
+  return !s.answers.current?next('前と後の値を見くらべて選ぶ。','current-choice'):next('次の実験へ進む。','next');
+ case 3:
+  if(!recorded('single-V-lamp1'))return next('電圧計で、電球の両端をはかる。','pair-ab');
+  if(!recorded('single-V-battery'))return next('電圧計で、電池の両端をはかる。','pair-pn');
+  return !recorded('single-V-wire')?next('電圧計で、左の導線の両端をはかる。','pair-pa'):next('次の実験へ進む。','next');
+ case 4:
+  if(!has('removed-series'))return next('直列のまま、電球 Bを外して観察する。','remove');
+  if(!has('parallel'))return next('「並列」に切り替える。','parallel');
+  if(!has('removed-parallel'))return next('並列で、電球 Bを外して観察する。','remove');
+  return !s.answers.branch?next('観察したことを一つ選ぶ。','branch-choice'):next('次の実験へ進む。','next');
+ case 5:{
+  const topology=s.topology;
+  const currentKeys=topology==='parallel'?['before','branch1','branch2']:['before','after'];
+  const missingCurrent=currentKeys.find(k=>!recorded(`${topology}-${k}`));
+  if(missingCurrent)return s.tool!=='current'?next('「電流計」を選ぶ。','tool-current'):next(`電流計で、${{before:'全体',after:'電球の後',branch1:'下の枝',branch2:'上の枝'}[missingCurrent]}をはかる。`,`slot-${missingCurrent}`);
+  const voltageKeys=['lamp1','lamp2','battery'], missingVoltage=voltageKeys.find(k=>!recorded(`${topology}-V-${k}`));
+  if(missingVoltage)return s.tool!=='voltage'?next('「電圧計」を選ぶ。','tool-voltage'):next(`電圧計で、${{lamp1:'電球 A',lamp2:'電球 B',battery:'電池'}[missingVoltage]}の両端をはかる。`,missingVoltage==='lamp1'?'pair-ab':missingVoltage==='lamp2'?'pair-cd':'pair-pn');
+  if(topology==='parallel'&&!s.answers.sum)return next('3つの電流を見くらべて選ぶ。','sum-choice');
+  if(topology==='parallel')return next('次の実験へ進む。','next');
+  return next('「並列」に切り替えて、同じようにはかる。','parallel');
+ }
+ case 6:{const v=[1,2,3].find(v=>!s.samples.some(p=>p.v===v));return v?(!has('measuring')?next('「測定をはじめる」を押す。','measure-start'):s.voltage!==v?next(`${v} Vにして、値が記録されるのを待つ。`,`voltage-${v}`):next('値が記録されるのを待つ。','measure-start')):!s.answers.graph?next('4 Vの点を選んで予想する。','plot'):next('次の実験へ進む。','next');}
+ case 7:{const r=[10,20,30].find(v=>!has(`R${v}`));return r?next(`${r} Ωを選び、電流を見くらべる。`,`resistance-${r}`):!s.answers.resistance?next('式を使って、抵抗を入力する。','resistance-answer'):next('入試問題へ進む。','next');}
+ case 8:{
+  if(finished())return next('学んだことを振り返る。','review');
+  const q=examQuestions[s.question];
+  if(q.kind==='connection')return next('抵抗器 Rの両端になる2点を選ぶ。','exam-nodes');
+  if(q.kind==='plot')return next('表を見て、3.0 Vの点を選ぶ。','plot');
+  if(q.kind==='number')return next('表と式を使って、答えを入力する。','exam-answer');
+  return next('条件として変えないものを選ぶ。','exam-choice');
+ }
+ }
+}
 function finished(){
  switch(s.stage){
  case 0:return model().current>0&&!model().short&&s.wires.length===3&&SINGLE_WIRES.every(e=>s.wires.some(w=>sameEdge(e,w)));
@@ -95,23 +144,24 @@ function graphPanel(){
  return `<section class="data-section ${exam?'exam-data':''}" aria-label="測定結果"><div class="data-table"><div class="panel-eyebrow">${exam?'実験の記録':'YOUR MEASUREMENTS'}</div>${sampleTable(samples)}</div><div class="data-graph">${graphView(exam?(s.question===1?[]:samples):samples,{guess:!exam&&samples.length>=3&&!s.answers.graph,exam:exam&&s.question===1&&!s.confirmed,selected:s.graphGuess,complete:!exam&&Boolean(s.answers.graph)})}</div></section>`;
 }
 function stageSteps(){return `<div class="stage-track" aria-label="学習の進み具合">${stages.map((st,i)=>`<button data-stage="${i}" class="${i===s.stage?'current':''} ${completed.includes(i)?'completed':''}" aria-label="${i+1}. ${st.name}" ${i>s.stage&&!completed.includes(i)&&!completed.includes(i-1)?'disabled':''} ${i===s.stage?'aria-current="step"':''}><span>${completed.includes(i)?'✓':String(i+1).padStart(2,'0')}</span></button>`).join('')}</div>`;}
+function nextLabel(){return s.stage===7?'入試問題へ':`「${stages[s.stage+1].name}」へ`;}
 function render({focusTitle=false}={}){
  const focused=document.activeElement;let restoreSelector=null;
  if(focused?.id)restoreSelector='#'+CSS.escape(focused.id);
  else if(focused?.dataset){for(const key of ['node','slot','view','tool','topology','choice','voltage','resistance','action','plot'])if(focused.dataset[key]){restoreSelector=`[data-${key}="${CSS.escape(focused.dataset[key])}"]`;if(key==='choice')restoreSelector+=`[data-value="${CSS.escape(focused.dataset.value)}"]`;break;}}
- app.className=`stage-${s.stage}`;
- const r=model(),st=stages[s.stage],done=finished(); if(done&&!completed.includes(s.stage))completed.push(s.stage);save();
+ const r=model(),st=stages[s.stage],done=finished(),step=guide(); if(done&&!completed.includes(s.stage))completed.push(s.stage);save();
+ app.className=`stage-${s.stage}${s.hint?` hint-target-${step.target}`:''}`;
  const isExam=s.stage===8;
  app.innerHTML=`<header class="site-header"><a class="brand" href="#" aria-label="電気の流れ、現在の実験"><span>電気の流れ<span class="brand-dot"></span></span><small>A LITTLE CIRCUIT LAB</small></a><nav aria-label="学習の章">${['つなぐ','はかる','ためす','問題'].map((t,i)=>`<button data-section="${i}" class="${st.section===i?'active':''}" ${st.section===i?'aria-current="page"':''}>${t}</button>`).join('')}</nav><button class="icon-button menu-button" data-action="menu" aria-label="学習ステップを開く" aria-expanded="${drawer}"><svg viewBox="0 0 24 24" fill="none"><path d="M5 8h14M5 16h14"/></svg></button></header>
  <main><div class="chapter-line"><span>CHAPTER ${String(st.section+1).padStart(2,'0')}</span><span class="chapter-dash"></span><span>${st.name}</span><span class="stage-count">${String(s.stage+1).padStart(2,'0')} / 09</span></div><div class="title-row"><div><h1 tabindex="-1">${done&&isExam?'見え方が変わっても、同じ回路。':st.title}</h1><p class="subtitle">${isExam?'抵抗器 Rの電圧を変え、流れる電流を調べた。':st.intro}</p></div><button class="hint-button" data-action="hint" aria-expanded="${s.hint}">${icons.hint}<span>ヒント</span></button></div>
- ${s.hint?`<div class="hint-strip" role="note">${st.hint}<button data-action="hint" aria-label="ヒントを閉じる">×</button></div>`:''}
+ ${s.hint?`<div class="hint-strip" role="note">${step.text}<button data-action="hint" aria-label="ヒントを閉じる">×</button></div>`:''}
  ${isExam?'<p class="experiment-text">抵抗器 Rに加える電圧を変え、流れる電流を調べた。結果は下の表のようになった。</p>':''}
  <div class="workbench ${s.stage===6||isExam?'has-data':''} ${isExam?'exam':''}"><section class="circuit-area" aria-label="回路を操作する"><div class="canvas-toolbar"><span class="canvas-label"><i class="${r.current>0?'on':''}"></i>${r.short?'通電停止':r.current>0?'電流が流れています':'電流は流れていません'}</span><div class="view-toggle" aria-label="回路の表示"><button data-view="real" aria-pressed="${!s.schematic}" class="${!s.schematic?'active':''}">実物</button><button data-view="diagram" aria-pressed="${s.schematic}" class="${s.schematic?'active':''}">回路図</button></div></div>
  <div class="circuit-wrap ${isExam&&has('rearranged')?'rearranged':''}">${circuitView(s,r,{exam:isExam})}</div><div class="circuit-readings" aria-label="電源と回路全体の測定値"><span>電池 <b>${pretty(s.voltage,1)}</b> V</span><span>全体 <b>${pretty(r.current)}</b> A</span></div><div class="canvas-bottom"><span>${s.stage===0?(s.selected?'もう一方の端子をタップ':'端子 → 端子'):s.stage===3||s.tool==='voltage'?'2点を選んで測定':s.stage===2||s.stage===5?'丸い＋をタップ':s.stage>=6?'電圧と電流の関係を観察':'スイッチをタップ'}</span><div class="canvas-actions"><button data-action="undo" class="icon-button" aria-label="操作を一つ戻す" ${history.length?'':'disabled'}><svg viewBox="0 0 24 24" fill="none"><path d="m9 6-5 5 5 5M4 11h10a5 5 0 0 1 0 10"/></svg></button><button data-action="reset" class="icon-button" aria-label="このステージをやり直す">${icons.reset}</button></div></div></section>
  <aside class="control-panel" aria-label="実験の操作と問い">${controls(r)}</aside>
  ${s.stage===6||isExam?graphPanel():''}</div>
  <div class="feedback ${s.feedback?'visible':''}" role="status" aria-live="polite">${escaped(s.feedback)}</div>
- <footer class="lesson-footer"><div class="lesson-insight ${done?'revealed':''}">${done?`<span class="insight-mark">${icons.check}</span><p>${st.insight}</p>`:`<span class="quiet-label">${s.stage===0?'まずは、触れることから。':'自分のペースで、確かめよう。'}</span>`}</div>${s.stage<8?`<button class="primary next-button" data-action="next" ${done?'':'disabled'}>次へ ${icons.arrow}</button>`:`<button class="primary next-button" data-action="${done?'review':'back-to-experiment'}">${done?'振り返る':'実験で確かめる'} ${icons.arrow}</button>`}</footer>
+ <footer class="lesson-footer"><div class="lesson-insight ${done?'revealed':''}">${done?`<span class="insight-mark">${icons.check}</span><p>${st.insight}</p>`:`<span class="quiet-label">今やること：${step.text}</span>`}</div>${s.stage<8?`<button class="primary next-button" data-action="next" ${done?'':'disabled'}>${done?nextLabel():'次へ'} ${icons.arrow}</button>`:`<button class="primary next-button" data-action="${done?'review':'back-to-experiment'}">${done?'振り返る':'実験で確かめる'} ${icons.arrow}</button>`}</footer>
  ${stageSteps()}<div class="bottom-meta"><span>中学2年 理科 <b>·</b> 回路と電流</span><button class="text-button" data-action="about">この実験について</button><span>${saveAvailable?'この端末に自動保存':'保存できません · この画面では続けられます'}</span></div></main>
  ${drawer?`<div class="drawer-backdrop" data-action="close-menu"></div><aside class="step-drawer" role="dialog" aria-modal="true" aria-label="学習ステップ"><div class="drawer-heading"><span>学習の道すじ</span><button class="icon-button" data-action="close-menu" aria-label="閉じる">×</button></div>${stages.map((t,i)=>`<button data-stage="${i}" class="drawer-step ${s.stage===i?'active':''}" ${i>s.stage&&!completed.includes(i)&&!completed.includes(i-1)?'disabled':''}><small>${String(i+1).padStart(2,'0')}</small><span>${t.name}</span>${completed.includes(i)?icons.check:''}</button>`).join('')}<button class="text-button wide" data-action="about">この実験について</button></aside>`:''}
  ${modal?modalView():''}${!portraitContinue?`<div class="orientation-guide" role="dialog" aria-modal="true" aria-label="横向きで使う"><div class="rotate-symbol" aria-hidden="true">↻</div><h2>画面を横向きに。</h2><p>回路と数値を、ひと目に。</p><button data-action="portrait-continue" class="secondary">縦向きで続ける</button></div>`:''}`;

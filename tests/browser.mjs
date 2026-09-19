@@ -17,36 +17,43 @@ for(const device of [{name:'desktop',width:1440,height:1000},{name:'tablet',widt
  const pair=async(a,b)=>{await node(a);await node(b);};
  const next=async()=>{await page.locator('[data-action="next"]:not(:disabled)').waitFor();await click('[data-action="next"]');};
  const choose=async(k,v)=>click(`[data-choice="${k}"][data-value="${v}"]`);
+ const assertGuide=async(text,target)=>{assert.match(await page.locator('.lesson-insight').innerText(),new RegExp(`今やること：${text}`));await click('[data-action="hint"]');assert.match(await page.locator('.hint-strip').innerText(),new RegExp(text));assert.ok((await page.locator('#app').getAttribute('class')).includes(`hint-target-${target}`));await click('[data-action="hint"]');};
  const shot=async name=>{await page.screenshot({path:`artifacts/${device.name}-${name}.png`,fullPage:true});};
  const assertWidth=async()=>assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${device.name} horizontal overflow`);
  try{
  await page.goto(process.env.APP_URL || 'http://127.0.0.1:4173');if(await page.locator('.orientation-guide').isVisible())await click('[data-action="portrait-continue"]');await assertWidth();await shot('01-start');
+ await assertGuide('電池の＋端子と左の端子 Aをつなぐ。','pair-pa');
  // Wire an intentional short, then undo. No programmatic application-state changes.
  await pair('p','n');await click('.switch-target');
  assert.match(await page.locator('.circuit-area').innerText(),/ショート/);
  await click('[data-action="undo"]');await click('[data-action="undo"]');await click('[data-action="undo"]');
  // Finish actual initial circuit.
  for(const [a,b]of [['p','a'],['b','sr'],['sl','n']])await pair(a,b);
+ await assertGuide('スイッチを閉じて、電球を観察する。','switch');
  await click('.switch-target');await page.locator('.is-flowing').waitFor();await shot('02-connected');
  // Reload retains the circuit and progress.
  await page.reload();await page.locator('.is-flowing').waitFor();await next();
  // Flow and symbols.
  await choose('flow','電球の後だけ止まる');assert.ok(await page.locator('[data-action="next"]').isDisabled());
  await choose('flow','止まる');await click('.switch-target');await click('.switch-target');await click('[data-view="diagram"]');await next();
+ await assertGuide('電流計で、電球の前をはかる。','slot-before');
  // Current.
  await node('p');assert.match(await page.locator('.feedback').innerText(),/導線の途中/);
  await click('[data-slot="before"] .slot-disc');await click('[data-slot="after"] .slot-disc');await choose('current','同じ');await shot('03-current');await next();
+ await assertGuide('電圧計で、電球の両端をはかる。','pair-ab');
  // Voltage: resistor, battery, a conductor.
  await pair('a','b');assert.match(await page.locator('.meter-value').textContent(),/1.50/);
  await pair('p','n');await pair('p','a');assert.match(await page.locator('.meter-value').textContent(),/0.00/);await shot('04-voltage');await next();
  // Series and parallel, predictions and removal.
  await choose('branch','もう一つは、つく');await click('[data-action="remove"]');
  await click('[data-topology="parallel"]');await click('[data-action="remove"]');await shot('05-parallel');await next();
+ await assertGuide('電流計で、全体をはかる。','slot-before');
  // Unequal branches: current and voltage in both topologies.
  for(const slot of ['before','branch1','branch2'])await click(`[data-slot="${slot}"] .slot-disc`);
  await choose('sum','0.60 A');await click('[data-tool="voltage"]');await pair('a','b');await pair('c','d');
  await click('[data-topology="series"]');await click('[data-tool="current"]');await click('[data-slot="before"] .slot-disc');await click('[data-slot="after"] .slot-disc');
  await click('[data-tool="voltage"]');await pair('a','b');await pair('c','d');await pair('p','n');await shot('06-comparison');await assertWidth();await next();
+ await assertGuide('「測定をはじめる」を押す。','measure-start');
  // Graph automatically records stable readings.
  await click('[data-action="measure-start"]');await page.waitForTimeout(600);
  await click('[data-voltage="2"]');await page.waitForTimeout(600);
@@ -54,10 +61,12 @@ for(const device of [{name:'desktop',width:1440,height:1000},{name:'tablet',widt
  assert.equal(await page.locator('.samples tbody tr').count(),3);
  await click('[data-plot="0.2"] circle:nth-child(2)');assert.ok(await page.locator('[data-action="next"]').isDisabled());
  await click('[data-plot="0.4"] circle:nth-child(2)');await shot('07-graph');await next();
+ await assertGuide('20 Ωを選び、電流を見くらべる。','resistance-20');
  // Resistance and calculation. Wrong answer does not pass.
  await click('[data-resistance="20"]');await click('[data-resistance="30"]');
  await page.locator('#resistance-answer').fill('2');await click('[data-form="resistance"] button');assert.ok(await page.locator('[data-action="next"]').isDisabled());
  await page.locator('#resistance-answer').fill('２０');await click('[data-form="resistance"] button');await shot('08-ohm');await next();
+ await assertGuide('抵抗器 Rの両端になる2点を選ぶ。','exam-nodes');
  // Bridge problem, all five questions.
  await pair('p','n');await click('[data-action="check-connection"]');assert.equal(await page.locator('[data-action="next-question"]').count(),0);
  await pair('a','b');await click('[data-action="check-connection"]');await click('[data-action="next-question"]');
