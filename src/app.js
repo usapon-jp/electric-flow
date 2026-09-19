@@ -9,7 +9,8 @@ let s=initialStage(0), completed=[], stageStates={}, drawer=false, modal=null, h
 function restoreState(raw) {
  if(!raw || !Number.isInteger(raw.stage) || raw.stage<0 || raw.stage>8)return null;
  const base=initialStage(raw.stage);
- for(const key of ['schematic','closed','removed','hint','confirmed'])if(typeof raw[key]==='boolean')base[key]=raw[key];
+ for(const key of ['schematic','closed','removed','hint','confirmed','answerShown'])if(typeof raw[key]==='boolean')base[key]=raw[key];
+ if([0,1].includes(raw.tour))base.tour=raw.tour;
  if(['single','series','parallel'].includes(raw.topology))base.topology=raw.topology;
  if([1,1.5,2,3,4,5].includes(raw.voltage))base.voltage=raw.voltage;
  if([7.5,10,20,30].includes(raw.resistance))base.resistance=raw.resistance;
@@ -46,9 +47,10 @@ function guide(){
  const next=(text,target)=>({text,target});
  switch(s.stage){
  case 0:{
-  const wires=[['p','a','電池の＋端子と左の端子 Aをつなぐ。','pair-pa'],['b','sr','右の端子 Bとスイッチの右端子をつなぐ。','pair-bsr'],['sl','n','スイッチの左端子と電池の−端子をつなぐ。','pair-sln']];
+ const wires=[['p','a','電池の＋端子と左の端子 Aをつなぐ。','pair-pa'],['b','sr','右の端子 Bとスイッチの右端子をつなぐ。','pair-bsr'],['sl','n','スイッチの左端子と電池の−端子をつなぐ。','pair-sln']];
   const missing=wires.find(([a,b])=>!s.wires.some(w=>sameEdge(w,[a,b])));
-  return missing?next(missing[2],missing[3]):!s.closed?next('スイッチを閉じて、電球を観察する。','switch'):next('次の実験へ進む。','next');
+  const connected=3-wires.filter(([a,b])=>!s.wires.some(w=>sameEdge(w,[a,b]))).length;
+  return missing?next(connected?`まだ 0 A。${missing[2]}`:missing[2],missing[3]):!s.closed?next('回路が一周した。スイッチを閉じて、電流が流れるか見る。','switch'):next('次の実験へ進む。','next');
  }
  case 1:
   if(!s.answers.flow)return next('予想を一つ選び、回路で確かめる。','prediction');
@@ -62,7 +64,7 @@ function guide(){
  case 3:
   if(!recorded('single-V-lamp1'))return next('電圧計で、電球の両端をはかる。','pair-ab');
   if(!recorded('single-V-battery'))return next('電圧計で、電池の両端をはかる。','pair-pn');
-  return !recorded('single-V-wire')?next('電圧計で、左の導線の両端をはかる。','pair-pa'):next('次の実験へ進む。','next');
+  return !recorded('single-V-wire')?next('つながっている導線の両端、電池＋ → 電球の左端子 Aを選ぶ。','pair-pa'):next('次の実験へ進む。','next');
  case 4:
   if(!has('removed-series'))return next('直列のまま、電球 Bを外して観察する。','remove');
   if(!has('parallel'))return next('「並列」に切り替える。','parallel');
@@ -91,6 +93,16 @@ function guide(){
  }
  }
 }
+function circuitStatus(r){
+ if(s.stage===0){
+  const connected=SINGLE_WIRES.filter(e=>s.wires.some(w=>sameEdge(w,e))).length;
+  if(!connected)return 'まだつながっていません · 0.00 A';
+  if(connected<3)return `あと ${3-connected} 本で回路が一周 · 0.00 A`;
+  if(!s.closed)return '回路が一周 · スイッチが開いていて 0.00 A';
+  return '回路が一周 · 電流が流れています';
+ }
+ return r.short?'通電停止':r.current>0?'電流が流れています':'電流は流れていません';
+}
 function finished(){
  switch(s.stage){
  case 0:return model().current>0&&!model().short&&s.wires.length===3&&SINGLE_WIRES.every(e=>s.wires.some(w=>sameEdge(e,w)));
@@ -116,7 +128,7 @@ function controls(r){
  case 0:return `<div class="panel-eyebrow">YOUR FIRST CIRCUIT</div><h2>小さな実験室へ。</h2><p class="panel-copy">つないで、スイッチを入れる。<br>そこから、はじめよう。</p>${checks([['電池 → 電球',s.wires.some(e=>sameEdge(e,['p','a']))],['電球 → スイッチ',s.wires.some(e=>sameEdge(e,['b','sr']))],['スイッチ → 電池',s.wires.some(e=>sameEdge(e,['sl','n']))]])}<div class="live-readings">${reading('電池',pretty(s.voltage,1),'V')}${reading('回路全体',pretty(r.current),'A')}</div>`;
  case 1:return `<div class="panel-eyebrow">PREDICT & TRY</div><h2>スイッチを開くと？</h2>${choice('flow',['全部の流れが止まる','電球の後だけ止まる'].map((t,i)=>i===0?'止まる':t))}${s.answers.flow?checks([['開いて、閉じてみる',has('opened')&&has('reclosed')],['回路図でも見る',has('diagram')]]):'<p class="panel-copy">予想したら、回路で確かめよう。</p>'}${reading('回路全体',pretty(r.current),'A')}`;
  case 2:return `<div class="panel-eyebrow">CURRENT</div><h2>途中に入れて、はかる。</h2><p class="panel-copy">丸い「＋」が、電流計の入る場所。</p>${checks([['電球の前',recorded('single-before')],['電球の後',recorded('single-after')]])}${recorded('single-before')&&recorded('single-after')?`<div class="mini-question">前と後の電流は？</div>${choice('current',['同じ','後のほうが小さい'])}`:''}`;
- case 3:return `<div class="panel-eyebrow">VOLTAGE</div><h2>両端に、そっと触れる。</h2><p class="panel-copy">一方を選んで、もう一方へ。</p>${checks([['電球の両端',recorded('single-V-lamp1')],['電池の両端',recorded('single-V-battery')],['左の導線の両端',recorded('single-V-wire')]])}<div class="live-readings">${reading('測った電圧',pretty(measuredVoltage(r,s.probes)),'V')}</div>`;
+ case 3:return `<div class="panel-eyebrow">VOLTAGE</div><h2>電圧をはかる。</h2><p class="panel-copy">はかりたい部分の2点を、順に選ぶ。</p>${checks([['電球の両端',recorded('single-V-lamp1')],['電池の両端',recorded('single-V-battery')],['つながった導線（0 V）',recorded('single-V-wire')]])}<div class="live-readings">${reading('測った電圧',pretty(measuredVoltage(r,s.probes)),'V')}</div>`;
  case 4:return `<div class="panel-eyebrow">TWO PATHS</div><h2>道が違うと、どうなる？</h2>${topologyControls()}${checks([['直列でくらべる',has('series')&&has('removed-series')],['並列でくらべる',has('parallel')&&has('removed-parallel')]])}<div class="mini-question">並列で、電球 Bを外すと？</div>${choice('branch',['もう一つは、つく','どちらも消える'])}<button class="secondary wide" data-action="remove">${s.removed?'電球 Bを戻す':'電球 Bを外す'}</button>${reading('回路全体',pretty(r.current),'A')}`;
  case 5:{const parallel=s.topology==='parallel';return `<div class="panel-eyebrow">MEASURE & COMPARE</div><h2>${parallel?'分かれた電流を足すと？':'一つの道を、はかる。'}</h2>${topologyControls()}${measurementTools()}${checks(parallel?[
  ['全体・上の枝・下の枝の電流',['before','branch1','branch2'].every(k=>recorded('parallel-'+k))],['電球 A・Bの電圧',['lamp1','lamp2'].every(k=>recorded('parallel-V-'+k))]
@@ -145,20 +157,23 @@ function graphPanel(){
 }
 function stageSteps(){return `<div class="stage-track" aria-label="学習の進み具合">${stages.map((st,i)=>`<button data-stage="${i}" class="${i===s.stage?'current':''} ${completed.includes(i)?'completed':''}" aria-label="${i+1}. ${st.name}" ${i>s.stage&&!completed.includes(i)&&!completed.includes(i-1)?'disabled':''} ${i===s.stage?'aria-current="step"':''}><span>${completed.includes(i)?'✓':String(i+1).padStart(2,'0')}</span></button>`).join('')}</div>`;}
 function nextLabel(){return s.stage===7?'入試問題へ':`「${stages[s.stage+1].name}」へ`;}
+const demos=['一周した回路では電流が流れます。表示の V は電圧、A は回路全体の電流です。','スイッチを開くと、回路は一周しなくなり、電流は 0 A になります。','電流計は回路の途中に入れます。電球の前も後も、電流は同じです。','電圧計は2点を選びます。つながった導線の両端は 0 V です。','直列は一本道、並列は枝分かれです。並列では片方を外しても別の枝は残ります。','枝分かれ前の電流は、2つの枝の電流を足した値です。','抵抗を変えずに電圧を上げると、電流も比例して増えます。','電圧が同じなら、抵抗が大きいほど電流は小さくなります。','実験の表とグラフを使うと、回路で見た関係を問題でも使えます。'];
+function introPanel(){return `<div class="lesson-intro"><div class="panel-eyebrow">まず、見本を見る</div><h2>${stages[s.stage].name}</h2><p>${demos[s.stage]}</p><button class="primary wide" data-action="begin-practice">触ってみる ${icons.arrow}</button></div>`;}
+function assistPanel(){const step=guide();return `<div class="assist-panel">${s.answerShown?`<p><b>答えの見方</b> ${step.text} ${stages[s.stage].insight}</p>`:`<button class="text-button" data-action="answer">答えを見る</button>`}</div>`;}
 function render({focusTitle=false}={}){
  const focused=document.activeElement;let restoreSelector=null;
  if(focused?.id)restoreSelector='#'+CSS.escape(focused.id);
  else if(focused?.dataset){for(const key of ['node','slot','view','tool','topology','choice','voltage','resistance','action','plot'])if(focused.dataset[key]){restoreSelector=`[data-${key}="${CSS.escape(focused.dataset[key])}"]`;if(key==='choice')restoreSelector+=`[data-value="${CSS.escape(focused.dataset.value)}"]`;break;}}
  const r=model(),st=stages[s.stage],done=finished(),step=guide(); if(done&&!completed.includes(s.stage))completed.push(s.stage);save();
- app.className=`stage-${s.stage}${s.hint?` hint-target-${step.target}`:''}`;
+ app.className=`stage-${s.stage}${s.tour===0?' lesson-demo':''}${s.hint?` hint-target-${step.target}`:''}`;
  const isExam=s.stage===8;
  app.innerHTML=`<header class="site-header"><a class="brand" href="#" aria-label="電気の流れ、現在の実験"><span>電気の流れ<span class="brand-dot"></span></span><small>A LITTLE CIRCUIT LAB</small></a><nav aria-label="学習の章">${['つなぐ','はかる','ためす','問題'].map((t,i)=>`<button data-section="${i}" class="${st.section===i?'active':''}" ${st.section===i?'aria-current="page"':''}>${t}</button>`).join('')}</nav><button class="icon-button menu-button" data-action="menu" aria-label="学習ステップを開く" aria-expanded="${drawer}"><svg viewBox="0 0 24 24" fill="none"><path d="M5 8h14M5 16h14"/></svg></button></header>
  <main><div class="chapter-line"><span>CHAPTER ${String(st.section+1).padStart(2,'0')}</span><span class="chapter-dash"></span><span>${st.name}</span><span class="stage-count">${String(s.stage+1).padStart(2,'0')} / 09</span></div><div class="title-row"><div><h1 tabindex="-1">${done&&isExam?'見え方が変わっても、同じ回路。':st.title}</h1><p class="subtitle">${isExam?'抵抗器 Rの電圧を変え、流れる電流を調べた。':st.intro}</p></div><button class="hint-button" data-action="hint" aria-expanded="${s.hint}">${icons.hint}<span>ヒント</span></button></div>
  ${s.hint?`<div class="hint-strip" role="note">${step.text}<button data-action="hint" aria-label="ヒントを閉じる">×</button></div>`:''}
  ${isExam?'<p class="experiment-text">抵抗器 Rに加える電圧を変え、流れる電流を調べた。結果は下の表のようになった。</p>':''}
- <div class="workbench ${s.stage===6||isExam?'has-data':''} ${isExam?'exam':''}"><section class="circuit-area" aria-label="回路を操作する"><div class="canvas-toolbar"><span class="canvas-label"><i class="${r.current>0?'on':''}"></i>${r.short?'通電停止':r.current>0?'電流が流れています':'電流は流れていません'}</span><div class="view-toggle" aria-label="回路の表示"><button data-view="real" aria-pressed="${!s.schematic}" class="${!s.schematic?'active':''}">実物</button><button data-view="diagram" aria-pressed="${s.schematic}" class="${s.schematic?'active':''}">回路図</button></div></div>
+ <div class="workbench ${s.stage===6||isExam?'has-data':''} ${isExam?'exam':''}"><section class="circuit-area" aria-label="回路を操作する"><div class="canvas-toolbar"><span class="canvas-label"><i class="${r.current>0?'on':''}"></i>${circuitStatus(r)}</span><div class="view-toggle" aria-label="回路の表示"><button data-view="real" aria-pressed="${!s.schematic}" class="${!s.schematic?'active':''}">実物</button><button data-view="diagram" aria-pressed="${s.schematic}" class="${s.schematic?'active':''}">回路図</button></div></div>
  <div class="circuit-wrap ${isExam&&has('rearranged')?'rearranged':''}">${circuitView(s,r,{exam:isExam})}</div><div class="circuit-readings" aria-label="電源と回路全体の測定値"><span>電池 <b>${pretty(s.voltage,1)}</b> V</span><span>全体 <b>${pretty(r.current)}</b> A</span></div><div class="canvas-bottom"><span>${s.stage===0?(s.selected?'もう一方の端子をタップ':'端子 → 端子'):s.stage===3||s.tool==='voltage'?'2点を選んで測定':s.stage===2||s.stage===5?'丸い＋をタップ':s.stage>=6?'電圧と電流の関係を観察':'スイッチをタップ'}</span><div class="canvas-actions"><button data-action="undo" class="icon-button" aria-label="操作を一つ戻す" ${history.length?'':'disabled'}><svg viewBox="0 0 24 24" fill="none"><path d="m9 6-5 5 5 5M4 11h10a5 5 0 0 1 0 10"/></svg></button><button data-action="reset" class="icon-button" aria-label="このステージをやり直す">${icons.reset}</button></div></div></section>
- <aside class="control-panel" aria-label="実験の操作と問い">${controls(r)}</aside>
+ <aside class="control-panel" aria-label="実験の操作と問い">${s.tour===0?introPanel():controls(r)+assistPanel()}</aside>
  ${s.stage===6||isExam?graphPanel():''}</div>
  <div class="feedback ${s.feedback?'visible':''}" role="status" aria-live="polite">${escaped(s.feedback)}</div>
  <footer class="lesson-footer"><div class="lesson-insight ${done?'revealed':''}">${done?`<span class="insight-mark">${icons.check}</span><p>${st.insight}</p>`:`<span class="quiet-label">今やること：${step.text}</span>`}</div>${s.stage<8?`<button class="primary next-button" data-action="next" ${done?'':'disabled'}>${done?nextLabel():'次へ'} ${icons.arrow}</button>`:`<button class="primary next-button" data-action="${done?'review':'back-to-experiment'}">${done?'振り返る':'実験で確かめる'} ${icons.arrow}</button>`}</footer>
@@ -195,6 +210,8 @@ app.addEventListener('click',e=>{
  if(action==='menu'||action==='close-menu'){drawer=!drawer;render();return;}
  if(action==='about'||action==='review'||action==='reset'){drawer=false;modal=action;render();return;}
  if(action==='close-modal'){modal=null;render();return;}
+ if(action==='begin-practice'){s.tour=1;s.hint=false;s.answerShown=false;render({focusTitle:true});return;}
+ if(action==='answer'){s.answerShown=true;s.hint=false;render();return;}
  if(action==='confirm-reset'){changeStage(s.stage,{reset:true});return;}
  if(action==='next'&&finished()){changeStage(s.stage+1);return;}
  if(action==='undo'){if(history.length){s=history.pop();render();scheduleMeasurement();}return;}

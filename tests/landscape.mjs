@@ -16,12 +16,13 @@ for(const device of devices.filter(device=>!process.env.LANDSCAPE_DEVICE||device
  const click=async selector=>{const el=page.locator(selector).first();await el.scrollIntoViewIfNeeded();if(device.name.includes('desktop'))await el.click();else await el.tap();};
  const node=async id=>click(`[data-node="${id}"] .terminal-dot`);
  const pair=async(a,b)=>{await node(a);await node(b);};
- const next=async()=>{await page.locator('[data-action="next"]:not(:disabled)').waitFor();await click('[data-action="next"]');};
+ const begin=async()=>{if(await page.locator('[data-action="begin-practice"]').count())await click('[data-action="begin-practice"]');};
+ const next=async()=>{await page.locator('[data-action="next"]:not(:disabled)').waitFor();await click('[data-action="next"]');await begin();};
  const choose=async(k,v)=>click(`[data-choice="${k}"][data-value="${v}"]`);
  const shot=async name=>{const layout=await page.evaluate(()=>{const svg=document.querySelector('.circuit-svg'),terminal=document.querySelector('.terminal-hit');return {width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth,scrollHeight:document.documentElement.scrollHeight,svg:svg&&svg.getBoundingClientRect().toJSON(),terminal:terminal&&terminal.getBoundingClientRect().toJSON(),controls:[...document.querySelectorAll('.control-panel button,.circuit-readings,.lesson-footer')].filter(el=>el.getBoundingClientRect().height).map(el=>({label:el.textContent.trim().slice(0,25),bottom:el.getBoundingClientRect().bottom}))};});assert.ok(layout.scrollWidth<=layout.width,JSON.stringify(layout));assert.ok(layout.scrollHeight<=layout.height+1,JSON.stringify(layout));assert.ok(layout.controls.every(c=>c.bottom<=layout.height+1),JSON.stringify(layout));if(device.name==='landscape-browser-chrome'){assert.ok(layout.svg.height>=140,`circuit too short: ${JSON.stringify(layout)}`);assert.ok(layout.terminal.width>=36,`terminal target too small: ${JSON.stringify(layout)}`);}await page.screenshot({path:`artifacts/${device.name}-${name}.png`,fullPage:true});};
  const assertWidth=async()=>assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${device.name} horizontal overflow`);
  try{
- await page.goto(process.env.APP_URL || 'http://127.0.0.1:4173');await assertWidth();await shot('01-start');
+ await page.goto(process.env.APP_URL || 'http://127.0.0.1:4173');await assertWidth();await shot('01-start');await begin();
  // Wire an intentional short, then undo. No programmatic application-state changes.
  await pair('p','n');await click('.switch-target');
  assert.match(await page.locator('.circuit-area').innerText(),/ショート/);

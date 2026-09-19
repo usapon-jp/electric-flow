@@ -15,21 +15,26 @@ for(const device of [{name:'desktop',width:1440,height:1000},{name:'tablet',widt
  const click=async selector=>{const el=page.locator(selector).first();await el.scrollIntoViewIfNeeded();if(device.name==='desktop')await el.click();else await el.tap();};
  const node=async id=>click(`[data-node="${id}"] .terminal-dot`);
  const pair=async(a,b)=>{await node(a);await node(b);};
- const next=async()=>{await page.locator('[data-action="next"]:not(:disabled)').waitFor();await click('[data-action="next"]');};
+ const begin=async()=>{if(await page.locator('[data-action="begin-practice"]').count())await click('[data-action="begin-practice"]');};
+ const next=async()=>{await page.locator('[data-action="next"]:not(:disabled)').waitFor();await click('[data-action="next"]');await begin();};
  const choose=async(k,v)=>click(`[data-choice="${k}"][data-value="${v}"]`);
  const assertGuide=async(text,target)=>{assert.match(await page.locator('.lesson-insight').innerText(),new RegExp(`今やること：${text}`));await click('[data-action="hint"]');assert.match(await page.locator('.hint-strip').innerText(),new RegExp(text));assert.ok((await page.locator('#app').getAttribute('class')).includes(`hint-target-${target}`));await click('[data-action="hint"]');};
  const shot=async name=>{await page.screenshot({path:`artifacts/${device.name}-${name}.png`,fullPage:true});};
  const assertWidth=async()=>assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${device.name} horizontal overflow`);
  try{
  await page.goto(process.env.APP_URL || 'http://127.0.0.1:4173');if(await page.locator('.orientation-guide').isVisible())await click('[data-action="portrait-continue"]');await assertWidth();await shot('01-start');
+ assert.match(await page.locator('.lesson-intro').innerText(),/一周した回路では電流が流れます/);await begin();
  await assertGuide('電池の＋端子と左の端子 Aをつなぐ。','pair-pa');
+ assert.match(await page.locator('.canvas-label').innerText(),/まだつながっていません.*0.00 A/);
  // Wire an intentional short, then undo. No programmatic application-state changes.
  await pair('p','n');await click('.switch-target');
  assert.match(await page.locator('.circuit-area').innerText(),/ショート/);
  await click('[data-action="undo"]');await click('[data-action="undo"]');await click('[data-action="undo"]');
  // Finish actual initial circuit.
- for(const [a,b]of [['p','a'],['b','sr'],['sl','n']])await pair(a,b);
- await assertGuide('スイッチを閉じて、電球を観察する。','switch');
+ await pair('p','a');assert.match(await page.locator('.canvas-label').innerText(),/あと 2 本.*0.00 A/);
+ await pair('b','sr');assert.match(await page.locator('.canvas-label').innerText(),/あと 1 本.*0.00 A/);
+ await pair('sl','n');assert.match(await page.locator('.canvas-label').innerText(),/スイッチが開いていて 0.00 A/);
+ await assertGuide('回路が一周した。スイッチを閉じて、電流が流れるか見る。','switch');
  await click('.switch-target');await page.locator('.is-flowing').waitFor();await shot('02-connected');
  // Reload retains the circuit and progress.
  await page.reload();await page.locator('.is-flowing').waitFor();await next();
@@ -43,7 +48,7 @@ for(const device of [{name:'desktop',width:1440,height:1000},{name:'tablet',widt
  await assertGuide('電圧計で、電球の両端をはかる。','pair-ab');
  // Voltage: resistor, battery, a conductor.
  await pair('a','b');assert.match(await page.locator('.meter-value').textContent(),/1.50/);
- await pair('p','n');await pair('p','a');assert.match(await page.locator('.meter-value').textContent(),/0.00/);await shot('04-voltage');await next();
+ await pair('p','n');await assertGuide('つながっている導線の両端、電池＋ → 電球の左端子 Aを選ぶ。','pair-pa');await pair('p','a');assert.match(await page.locator('.meter-value').textContent(),/0.00/);await shot('04-voltage');await next();
  // Series and parallel, predictions and removal.
  await choose('branch','もう一つは、つく');await click('[data-action="remove"]');
  await click('[data-topology="parallel"]');await click('[data-action="remove"]');await shot('05-parallel');await next();

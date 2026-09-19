@@ -15,7 +15,7 @@ export const initialStage = stage => ({
   wires:stage===0?[]:[['p','a'],['b','sr'],['sl','n']], closed:stage!==0,
   removed:false, selected:null, probes:[], tool:stage===3?'voltage':stage===2||stage===5?'current':null,
   meter:null, records:{}, seen:[], answers:{}, samples:[], question:0, feedback:'', hint:false,
-  prediction:null, graphGuess:null, confirmed:false, examConnections:[], examPoints:[],
+  prediction:null, graphGuess:null, confirmed:false, examConnections:[], examPoints:[], tour:0, answerShown:false,
 });
 export const examQuestions = [
  {title:'抵抗器の電圧をはかるには？',kind:'connection',note:'電圧計をつなぐ2点を選ぶ。'},

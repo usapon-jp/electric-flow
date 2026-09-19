@@ -44,6 +44,7 @@
  .circuit-svg .terminal-hit{r:49px}
  .stage-4 .checklist,.stage-5 .checklist{margin:3px 0;gap:3px}.stage-5 .check-item{font-size:9px}.stage-5 .check-item>span{width:12px;height:12px}.stage-5 .choices{margin:3px 0}.stage-5 .mini-question{font-size:10px}.stage-5 .segmented{margin-top:0}.stage-5 .quiet-note{display:none}
  .stage-6 .checklist{display:none}.stage-6 .mini-question{margin-top:5px}.stage-6 .control-panel>.panel-copy{display:none}.stage-7 .checklist{margin:4px 0}.stage-7 .reading{padding:2px 0}
+ .assist-panel{margin-top:3px;padding-top:0;border-top:0}.assist-panel .text-button{min-height:26px}.assist-panel p{font-size:8px;line-height:1.4}
 }
 @media(orientation:landscape) and (max-height:340px){
  main{grid-template-rows:0 0 minmax(0,1fr) 0 38px 0 0}.title-row{display:none}
