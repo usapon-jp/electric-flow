@@ -196,7 +196,11 @@ render();scheduleMeasurement();
 
 function fitCircuitViewport(){
  const compact=matchMedia('(orientation:landscape) and (max-height:650px)').matches;
- document.querySelector('.circuit-svg')?.setAttribute('viewBox',compact?'35 50 635 385':'0 0 680 440');
+ const veryShort=matchMedia('(orientation:landscape) and (max-height:430px)').matches;
+ // At phone landscape height, omit only SVG's unused outer margins. This makes
+ // the real parts and their terminals larger without stretching their shapes.
+ const viewBox=veryShort?(s.tool==='voltage'||s.stage===8?'50 50 590 375':'50 50 590 315'):(compact?'35 50 635 385':'0 0 680 440');
+ document.querySelector('.circuit-svg')?.setAttribute('viewBox',viewBox);
  const rotate=!portraitContinue&&matchMedia('(orientation:portrait) and (max-width:900px)').matches;
  document.querySelectorAll('.site-header,main').forEach(el=>el.inert=rotate);
  if(rotate&&!document.activeElement?.closest('.orientation-guide'))document.querySelector('[data-action="portrait-continue"]')?.focus({preventScroll:true});
