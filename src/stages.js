@@ -14,7 +14,7 @@ export const initialStage = stage => ({
   voltage:stage>=6?1:stage===5?3:1.5, resistance:stage>=6?10:7.5,
   wires:stage===0?[]:[['p','a'],['b','sr'],['sl','n']], closed:stage!==0,
   removed:false, selected:null, probes:[], tool:stage===3?'voltage':stage===2||stage===5?'current':null,
-  meter:null, records:{}, seen:[], answers:{}, samples:[], question:0, feedback:'', hint:false,
+  meter:null, range:null, records:{}, seen:[], answers:{}, samples:[], question:0, feedback:'', hint:false,
   prediction:null, graphGuess:null, confirmed:false, examConnections:[], examPoints:[], tour:0, answerShown:false,
 });
 export const examQuestions = [
