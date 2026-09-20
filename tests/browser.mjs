@@ -12,17 +12,27 @@ try{
 for(const device of [{name:'desktop',width:1440,height:1000},{name:'tablet',width:834,height:1194},{name:'mobile',width:390,height:844}]){
  const context=await browser.newContext({viewport:{width:device.width,height:device.height},hasTouch:device.name!=='desktop',isMobile:device.name==='mobile'});
  const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
- const click=async selector=>{const el=page.locator(selector).first();await el.scrollIntoViewIfNeeded();if(device.name==='desktop')await el.click();else await el.tap();};
+ const click=async selector=>{const el=page.locator(selector).first();if(device.name==='desktop')await el.click();else await el.tap();};
  const node=async id=>click(`[data-node="${id}"] .terminal-dot`);
  const pair=async(a,b)=>{await node(a);await node(b);};
- const begin=async()=>{if(await page.locator('[data-action="begin-practice"]').count())await click('[data-action="begin-practice"]');};
+ const begin=async()=>{
+  if(await page.locator('[data-action="begin-practice"]').count()){
+   assert.match(await page.locator('.lesson-insight').innerText(),/わかったら、ためす/);await shot('03-basics');
+   await click('[data-action="begin-practice"]');
+  }
+  if(await page.locator('[data-range="3A"]').count()){
+   assert.match(await page.locator('.lesson-insight').innerText(),/最初は一番大きい測定範囲/);
+   await click('[data-range="300mA"]');assert.ok(await page.locator('.feedback').isVisible());await shot('03-range-feedback');
+   await click('[data-range="3A"]');
+  }
+ };
  const next=async()=>{await page.locator('[data-action="next"]:not(:disabled)').waitFor();await click('[data-action="next"]');await begin();};
  const choose=async(k,v)=>click(`[data-choice="${k}"][data-value="${v}"]`);
  const assertGuide=async(text,target)=>{assert.match(await page.locator('.lesson-insight').innerText(),new RegExp(`今やること：${text}`));await click('[data-action="hint"]');assert.match(await page.locator('.hint-strip').innerText(),new RegExp(text));assert.ok((await page.locator('#app').getAttribute('class')).includes(`hint-target-${target}`));await click('[data-action="hint"]');};
  const shot=async name=>{await page.screenshot({path:`artifacts/${device.name}-${name}.png`,fullPage:true});};
  const assertWidth=async()=>assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${device.name} horizontal overflow`);
  try{
- await page.goto(process.env.APP_URL || 'http://127.0.0.1:4173');if(await page.locator('.orientation-guide').isVisible())await click('[data-action="portrait-continue"]');await assertWidth();await shot('01-start');
+ await page.goto(process.env.APP_URL || 'http://127.0.0.1:4173');await click('[data-action="start-course"]');await assertWidth();await shot('01-start');
  await assertGuide('電池の＋端子と左の端子 Aをつなぐ。','pair-pa');
  assert.match(await page.locator('.canvas-label').innerText(),/まだつながっていません.*0.00 A/);
  // Wire an intentional short, then undo. No programmatic application-state changes.
@@ -54,8 +64,11 @@ for(const device of [{name:'desktop',width:1440,height:1000},{name:'tablet',widt
  await assertGuide('電流計で、全体をはかる。','slot-before');
  // Unequal branches: current and voltage in both topologies.
  for(const slot of ['before','branch1','branch2'])await click(`[data-slot="${slot}"] .slot-disc`);
- await choose('sum','0.60 A');await click('[data-tool="voltage"]');await pair('a','b');await pair('c','d');
- await click('[data-topology="series"]');await click('[data-tool="current"]');await click('[data-slot="before"] .slot-disc');await click('[data-slot="after"] .slot-disc');
+ await choose('sum','0.60 A');await click('[data-tool="voltage"]');await pair('a','b');await pair('c','d');await pair('p','n');
+ assert.match(await page.locator('.lesson-insight').innerText(),/「直列」に切り替えて/);
+ assert.ok(await page.locator('[data-action="next"]').isDisabled());
+ await click('[data-topology="series"]');
+ assert.equal(await page.locator('[data-choice="sum"]').count(),0);await click('[data-tool="current"]');await click('[data-slot="before"] .slot-disc');await click('[data-slot="after"] .slot-disc');
  await click('[data-tool="voltage"]');await pair('a','b');await pair('c','d');await pair('p','n');await shot('06-comparison');await assertWidth();await next();
  await assertGuide('「測定をはじめる」を押す。','measure-start');
  // Graph automatically records stable readings.
@@ -80,6 +93,7 @@ for(const device of [{name:'desktop',width:1440,height:1000},{name:'tablet',widt
  await choose('exam','抵抗器');await click('[data-action="next-question"]');
  await page.getByRole('heading',{name:'回路から、答えまで。'}).waitFor();await assertWidth();await shot('09-complete');
  await page.reload();await page.getByRole('heading',{name:'回路から、答えまで。'}).waitFor();
+ await click('[data-action="home"]');await page.reload();await click('[data-action="resume"]');await page.getByRole('heading',{name:'回路から、答えまで。'}).waitFor();
  // Revisiting experiments preserves data and returning restores the finished problem.
  await click('.stage-track [data-stage="6"]');assert.equal(await page.locator('.samples tbody tr').count(),3);
  await page.reload();await click('.stage-track [data-stage="8"]');await page.getByRole('heading',{name:'回路から、答えまで。'}).waitFor();

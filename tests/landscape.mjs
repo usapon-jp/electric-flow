@@ -13,16 +13,26 @@ const devices=[{name:'landscape-desktop',width:1280,height:800},{name:'landscape
 for(const device of devices.filter(device=>!process.env.LANDSCAPE_DEVICE||device.name===process.env.LANDSCAPE_DEVICE)){
  const context=await browser.newContext({viewport:{width:device.width,height:device.height},hasTouch:!device.name.includes('desktop'),isMobile:device.name.includes('mobile')||device.name.includes('small')});
  const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
- const click=async selector=>{const el=page.locator(selector).first();await el.scrollIntoViewIfNeeded();if(device.name.includes('desktop'))await el.click();else await el.tap();};
+ const click=async selector=>{const el=page.locator(selector).first();if(device.name.includes('desktop'))await el.click();else await el.tap();};
  const node=async id=>click(`[data-node="${id}"] .terminal-dot`);
  const pair=async(a,b)=>{await node(a);await node(b);};
- const begin=async()=>{if(await page.locator('[data-action="begin-practice"]').count())await click('[data-action="begin-practice"]');};
+ const begin=async()=>{
+  if(await page.locator('[data-action="begin-practice"]').count()){
+   assert.match(await page.locator('.lesson-insight').innerText(),/わかったら、ためす/);await shot('03-basics');
+   await click('[data-action="begin-practice"]');
+  }
+  if(await page.locator('[data-range="3A"]').count()){
+   assert.match(await page.locator('.lesson-insight').innerText(),/最初は一番大きい測定範囲/);
+   await click('[data-range="300mA"]');assert.ok(await page.locator('.feedback').isVisible());await shot('03-range-feedback');
+   await click('[data-range="3A"]');
+  }
+ };
  const next=async()=>{await page.locator('[data-action="next"]:not(:disabled)').waitFor();await click('[data-action="next"]');await begin();};
  const choose=async(k,v)=>click(`[data-choice="${k}"][data-value="${v}"]`);
  const shot=async name=>{const layout=await page.evaluate(()=>{const svg=document.querySelector('.circuit-svg'),terminal=document.querySelector('.terminal-hit');return {width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth,scrollHeight:document.documentElement.scrollHeight,svg:svg&&svg.getBoundingClientRect().toJSON(),terminal:terminal&&terminal.getBoundingClientRect().toJSON(),controls:[...document.querySelectorAll('.control-panel button,.circuit-readings,.lesson-footer')].filter(el=>el.getBoundingClientRect().height).map(el=>({label:el.textContent.trim().slice(0,25),bottom:el.getBoundingClientRect().bottom}))};});assert.ok(layout.scrollWidth<=layout.width,JSON.stringify(layout));assert.ok(layout.scrollHeight<=layout.height+1,JSON.stringify(layout));assert.ok(layout.controls.every(c=>c.bottom<=layout.height+1),JSON.stringify(layout));if(device.name==='landscape-browser-chrome'){assert.ok(layout.svg.height>=140,`circuit too short: ${JSON.stringify(layout)}`);assert.ok(layout.terminal.width>=36,`terminal target too small: ${JSON.stringify(layout)}`);}await page.screenshot({path:`artifacts/${device.name}-${name}.png`,fullPage:true});};
  const assertWidth=async()=>assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${device.name} horizontal overflow`);
  try{
- await page.goto(process.env.APP_URL || 'http://127.0.0.1:4173');await assertWidth();await shot('01-start');
+ await page.goto(process.env.APP_URL || 'http://127.0.0.1:4173');await click('[data-action="start-course"]');await assertWidth();await shot('01-start');
  // Wire an intentional short, then undo. No programmatic application-state changes.
  await pair('p','n');await click('.switch-target');
  assert.match(await page.locator('.circuit-area').innerText(),/ショート/);
@@ -46,8 +56,11 @@ for(const device of devices.filter(device=>!process.env.LANDSCAPE_DEVICE||device
  await click('[data-topology="parallel"]');await click('[data-action="remove"]');await shot('05-parallel');await next();
  // Unequal branches: current and voltage in both topologies.
  for(const slot of ['before','branch1','branch2'])await click(`[data-slot="${slot}"] .slot-disc`);
- await choose('sum','0.60 A');await click('[data-tool="voltage"]');await pair('a','b');await pair('c','d');
- await click('[data-topology="series"]');await click('[data-tool="current"]');await click('[data-slot="before"] .slot-disc');await click('[data-slot="after"] .slot-disc');
+ await choose('sum','0.60 A');await click('[data-tool="voltage"]');await pair('a','b');await pair('c','d');await pair('p','n');
+ assert.match(await page.locator('.lesson-insight').innerText(),/「直列」に切り替えて/);
+ assert.ok(await page.locator('[data-action="next"]').isDisabled());
+ await click('[data-topology="series"]');
+ assert.equal(await page.locator('[data-choice="sum"]').count(),0);await click('[data-tool="current"]');await click('[data-slot="before"] .slot-disc');await click('[data-slot="after"] .slot-disc');
  await click('[data-tool="voltage"]');await pair('a','b');await pair('c','d');await pair('p','n');await shot('06-comparison');await assertWidth();await next();
  // Graph automatically records stable readings.
  await click('[data-action="measure-start"]');await page.waitForTimeout(600);

@@ -14,7 +14,7 @@ function pathFor(a,b,topology) {
   const p=POINTS[a],q=POINTS[b];return `M${p}C${p[0]} ${(p[1]+q[1])/2},${q[0]} ${(p[1]+q[1])/2},${q}`;
 }
 function bulb(x,y,power,schematic,removed=false,label='',compact=false) {
- const brightness=removed?0:Math.min(1,power/.3), lit=brightness>.015;
+ const brightness=removed?0:power/(power+.3), lit=brightness>.015;
  return `<g class="load ${removed?'removed':''}">
   <g class="physical" opacity="${schematic?0:1}" transform="${compact?`translate(${x} ${y}) scale(.76) translate(${-x} ${-y})`:''}">
    ${lit?`<ellipse cx="${x}" cy="${y-61}" rx="82" ry="94" fill="url(#aura)" opacity="${brightness}"/>`:''}
@@ -74,7 +74,7 @@ return `<svg class="circuit-svg ${active?'is-flowing':''} ${schematic?'is-schema
  <g class="switch-target" data-action="switch" tabindex="0" role="button" aria-label="スイッチを${s.closed?'開く':'閉じる'}" aria-pressed="${s.closed}"><rect x="513" y="62" width="52" height="69" fill="transparent"/></g>
  ${s.tool==='current'&&!exam?slots.map(slot=>`<g class="meter-slot ${s.meter===slot.id?'chosen':''}" data-slot="${slot.id}" tabindex="0" role="button" aria-label="${slot.label}の電流をはかる"><circle cx="${slot.x}" cy="${slot.y}" r="42" fill="transparent"/><circle cx="${slot.x}" cy="${slot.y}" r="21" class="slot-disc"/><text x="${slot.x}" y="${slot.y+6}" class="slot-letter">${s.meter===slot.id?'A':'＋'}</text>${s.records[`${s.topology}-${slot.id}`]!==undefined?`<g class="meter-tag"><rect x="${slot.x-41}" y="${slot.y+28}" width="82" height="26" rx="8"/><text x="${slot.x}" y="${slot.y+46}">${pretty(slot.value)} A</text></g>`:''}</g>`).join(''):''}
  ${s.tool==='voltage'&&s.probes.length===2&&!exam?`<g class="voltmeter"><path d="M${POINTS[s.probes[0]]}Q${POINTS[s.probes[0]][0]} 409 318 400M${POINTS[s.probes[1]]}Q${POINTS[s.probes[1]][0]} 409 362 400" fill="none" stroke="#a48b66" stroke-width="2" stroke-dasharray="4 4"/><rect x="294" y="383" width="92" height="38" rx="12" fill="#fdfcf9" stroke="#d9d9cf"/><text x="340" y="407" class="meter-value">${pretty(voltage)} V</text></g>`:''}
- ${r.short?'<g><rect x="218" y="181" width="244" height="42" rx="12" fill="#f5e9dd"/><text x="340" y="208" class="short-label">ショート · 通電を止めました</text></g>':''}
+ ${r.short?'<g><rect x="218" y="181" width="244" height="42" rx="12" fill="#f5e9dd"/><text x="340" y="208" class="short-label">ショート · アプリ内で通電停止</text></g>':''}
  </svg>`;
 }
 export function graphView(samples,{guess=false,selected=null,exam=false,complete=false}={}){

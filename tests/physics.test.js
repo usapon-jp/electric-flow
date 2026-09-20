@@ -10,3 +10,20 @@ test('short circuits are stopped instead of generating infinite values',()=>{con
 test('same conductor measures zero, battery has voltage when open',()=>{close(measuredVoltage(solveCircuit({}),['p','a']),0);close(measuredVoltage(solveCircuit({closed:false}),['p','n']),1.5);});
 test('Ohm graph points are proportional and inverse resistance works',()=>{for(const voltage of [1,2,3,4,5])close(solveCircuit({voltage,resistance:10}).current,voltage/10);close(solveCircuit({voltage:3,resistance:20}).current,.15);});
 test('load power matches source power for the supported topologies',()=>{for(const topology of ['single','series','parallel']){const r=solveCircuit({topology,voltage:3,resistance:10,secondResistance:20});close(Object.values(r.powers).reduce((a,b)=>a+b,0),3*r.current);}});
+
+// Check the actual values used in lesson 6, not only arbitrary resistors.
+test('lesson branch values, voltage sums and brightness stay distinguishable',async()=>{
+ const {initialStage}=await import('../src/stages.js');
+ const {circuitView}=await import('../src/circuit.js');
+ const s=initialStage(5), parallel=solveCircuit({...s,secondResistance:15});
+ close(parallel.current,.6);close(parallel.currents.lamp1,.4);close(parallel.currents.lamp2,.2);
+ close(measuredVoltage(parallel,['a','b']),3);close(measuredVoltage(parallel,['c','d']),3);
+ const series=solveCircuit({...s,topology:'series',secondResistance:15});
+ close(series.current,2/15);close(measuredVoltage(series,['a','b']),1);close(measuredVoltage(series,['c','d']),2);
+ const glow=[...circuitView(s,parallel).matchAll(/fill="url\(#aura\)" opacity="([0-9.]+)"/g)].map(m=>Number(m[1]));
+ assert.equal(glow.length,2);assert.ok(glow[0]>glow[1]&&glow[0]<1&&glow[1]>0,'different power must not saturate to identical brightness');
+});
+test('an open circuit can have voltage: battery and open switch, but not the lamp',()=>{
+ const r=solveCircuit({closed:false});close(r.current,0);
+ close(measuredVoltage(r,['p','n']),1.5);close(measuredVoltage(r,['sl','sr']),1.5);close(measuredVoltage(r,['a','b']),0);
+});
