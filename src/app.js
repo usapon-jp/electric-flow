@@ -3,7 +3,7 @@ import {stages,initialStage,examQuestions} from './stages.js';
 import {circuitView,graphView,icons} from './circuit.js';
 
 const KEY='electric-flow-v1', app=document.querySelector('#app');
-let s=initialStage(0), completed=[], stageStates={}, drawer=false, modal=null, history=[], saveAvailable=true, measureTimer,celebrationStage=null,celebrationTimer,home=true,pointerDrag=null,skipDragClick=false;
+let s=initialStage(0), completed=[], stageStates={}, drawer=false, modal=null, history=[], saveAvailable=true, measureTimer,celebrationStage=null,celebrationTimer,home=true,pointerDrag=null,skipDragClick=false,demoSeen={};
 function restoreState(raw) {
  if(!raw || !Number.isInteger(raw.stage) || raw.stage<0 || raw.stage>8)return null;
  const base=initialStage(raw.stage);
@@ -35,12 +35,16 @@ try {
   if(saved.stageStates&&typeof saved.stageStates==='object')for(const [k,v]of Object.entries(saved.stageStates)){const restored=restoreState(v);if(restored&&String(restored.stage)===k)stageStates[k]=restored;}
  }
 }catch{}
+try{const seen=JSON.parse(localStorage.getItem(KEY+'-demos'));if(seen&&typeof seen==='object'&&!Array.isArray(seen))demoSeen=seen;}catch{}
 
 const escaped=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const has=v=>s.seen.includes(v);
 const see=v=>{if(!has(v))s.seen.push(v);};
 const model=()=>solveCircuit({...s,secondResistance:s.stage===5?15:s.resistance});
 function save(){try{localStorage.setItem(KEY,JSON.stringify({version:1,state:s,completed,stageStates,home}));saveAvailable=true;}catch{saveAvailable=false;}}
+function saveDemoSeen(){try{localStorage.setItem(KEY+'-demos',JSON.stringify(demoSeen));}catch{}}
+function pendingDemo(){if(home||modal||drawer)return null;if(s.stage===0&&!demoSeen.wiring)return'wiring';if(s.stage===2&&s.tour&&s.range&&!demoSeen.current)return'current';if(s.stage===3&&!demoSeen.voltage)return'voltage';return null;}
+function markDemoSeen(type){if(!type)return;demoSeen[type]=true;saveDemoSeen();}
 function recordVoltage(result){if(s.probes.length!==2||result.short||result.current<=0)return;const v=measuredVoltage(result,s.probes);if(v===null)return;const pairs={battery:['p','n'],lamp1:['a','b'],lamp2:['c','d'],wire:['p','a']};for(const [key,pair] of Object.entries(pairs))if(sameEdge(pair,s.probes))s.records[`${s.topology}-V-${key}`]=v;}
 const recorded=k=>s.records[k]!==undefined;
 function guide(){
@@ -128,6 +132,15 @@ function finished(){
 function choice(key,items){return `<div class="choices">${items.map(v=>`<button class="choice ${s.answers[key]===v?'correct':''}" data-choice="${key}" data-value="${escaped(v)}">${escaped(v)}${s.answers[key]===v?icons.check:''}</button>`).join('')}</div>`;}
 function checks(items){return `<div class="checklist">${items.map(([text,ok])=>`<div class="check-item ${ok?'done':''}"><span>${ok?icons.check:'<i></i>'}</span>${text}</div>`).join('')}</div>`;}
 function wireGesture(){return `<div class="wire-gesture" role="note" aria-label="つなぐ、外す操作の見本"><div><svg viewBox="0 0 108 48" aria-hidden="true"><circle cx="16" cy="18" r="5"/><circle cx="91" cy="18" r="5"/><path class="gesture-dash" d="M24 18h59"/><path class="gesture-hand" d="M54 43V27m0 0-5 5m5-5 5 5"/></svg><span>端子を2つタップ<br>→ つながる</span></div><div><svg viewBox="0 0 108 48" aria-hidden="true"><circle cx="16" cy="18" r="5"/><circle cx="91" cy="18" r="5"/><path class="gesture-wire" d="M24 18h59"/><path class="gesture-hand" d="M54 43V27m0 0-5 5m5-5 5 5"/></svg><span>同じ2点をもう一度<br>→ 外せる</span></div></div>`;}
+function coachHand(){return `<svg class="coach-hand" viewBox="0 0 64 82" aria-hidden="true"><circle class="coach-tap-ring" cx="31" cy="12" r="10"/><path d="M28 66c-6-6-10-14-10-22 0-4 5-6 8-3V17c0-5 8-5 8 0v20-8c0-5 8-5 8 0v9-6c0-5 8-5 8 0v9-4c0-5 8-5 8 0v12c0 13-8 23-19 27-4 2-8-5-11-10Z"/></svg>`;}
+function interactionDemo(type){
+ const data={
+  wiring:{title:'端子を2つ、順番にタップ。',copy:'まず1つめ。次に、つなぎたい端子をタップすると線がつながるよ。',scene:`<span class="coach-dot first"></span><span class="coach-dot second"></span><span class="coach-wire-line"></span>${coachHand()}`},
+  current:{title:'電流計は、丸い「＋」へ。',copy:'Aの電流計をつかんで、回路の途中にある丸い「＋」まで動かすよ。',scene:`<span class="coach-meter">A</span><span class="coach-slot">＋</span><span class="coach-path"></span>${coachHand()}`},
+  voltage:{title:'Vの線を、両端につなぐ。',copy:'Vの線を片方の端子へ動かして、次にもう一方の端子にもつなぐよ。',scene:`<span class="coach-meter">V</span><span class="coach-dot first"></span><span class="coach-dot second"></span><span class="coach-probe-line one"></span><span class="coach-probe-line two"></span>${coachHand()}`}
+ }[type];
+ return `<div class="coach-layer coach-${type}" data-demo="${type}" role="dialog" aria-labelledby="coach-title"><div class="coach-card"><div class="panel-eyebrow">操作の見本</div><h2 id="coach-title">${data.title}</h2><div class="coach-scene" aria-hidden="true">${data.scene}</div><p>${data.copy}</p><button class="primary" data-action="close-demo">やってみる ${icons.arrow}</button></div></div>`;
+}
 function topologyControls(){return `<div class="segmented topology">${[['series','直列'],['parallel','並列']].map(([v,t])=>`<button data-topology="${v}" class="${s.topology===v?'active':''}" aria-pressed="${s.topology===v}">${t}</button>`).join('')}</div>`;}
 function reading(label,value,unit){return `<div class="reading"><span>${label}</span><strong>${value}<small>${unit}</small></strong></div>`;}
 function measurementTools(){return `<div class="tool-picker"><button data-tool="current" class="${s.tool==='current'?'active':''}" aria-pressed="${s.tool==='current'}"><span class="meter-icon">A</span>電流計</button><button data-tool="voltage" class="${s.tool==='voltage'?'active':''}" aria-pressed="${s.tool==='voltage'}"><span class="meter-icon">V</span>電圧計</button></div>`;}
@@ -178,7 +191,7 @@ function render({focusTitle=false}={}){
  if(focused?.id)restoreSelector='#'+CSS.escape(focused.id);
  else if(focused?.dataset){for(const key of ['node','slot','view','tool','topology','choice','voltage','resistance','action','plot'])if(focused.dataset[key]){restoreSelector=`[data-${key}="${CSS.escape(focused.dataset[key])}"]`;if(key==='choice')restoreSelector+=`[data-value="${CSS.escape(focused.dataset.value)}"]`;break;}}
  if(home){app.className='material-home-page';app.innerHTML=homeView();if(modal)document.querySelector('.modal button')?.focus({preventScroll:true});return;}
- const r=model(),st=stages[s.stage],wasDone=completed.includes(s.stage),justDone=!wasDone&&finished(),done=wasDone||justDone,step=guide(),demoCircuit=s,demoResult=r;
+ const r=model(),st=stages[s.stage],wasDone=completed.includes(s.stage),justDone=!wasDone&&finished(),done=wasDone||justDone,step=guide(),demoCircuit=s,demoResult=r,demo=pendingDemo();
  if(justDone){completed.push(s.stage);celebrationStage=s.stage;clearTimeout(celebrationTimer);celebrationTimer=setTimeout(()=>{celebrationStage=null;app.classList.remove('just-achieved');},900);}save();
  const firstCircuitWired=s.stage===0&&SINGLE_WIRES.every(e=>s.wires.some(w=>sameEdge(e,w)));
  app.className=`stage-${s.stage}${done?' stage-complete':''}${celebrationStage===s.stage?' just-achieved':''}${firstCircuitWired&&!s.closed?' needs-switch':''}${s.hint?` hint-target-${step.target}`:''}`;
@@ -195,7 +208,7 @@ function render({focusTitle=false}={}){
  <footer class="lesson-footer"><div class="lesson-insight ${done?'revealed':''}">${done?`<span class="insight-mark">${icons.check}</span><p>${st.insight}</p>`:`<span class="quiet-label">今やること：${step.text}</span>`}</div>${s.stage<8?`<button class="primary next-button ${done?'ready':''}" data-action="next" ${done?'':'disabled'}>${done?nextLabel():'次へ'} ${icons.arrow}</button>`:`<button class="primary next-button ${done?'ready':''}" data-action="${done?'review':'back-to-experiment'}">${done?'振り返る':'実験で確かめる'} ${icons.arrow}</button>`}</footer>
  ${stageSteps()}<div class="bottom-meta"><span>中学2年 理科 <b>·</b> 回路と電流</span><button class="text-button" data-action="about">この実験について</button><span>${saveAvailable?'この端末に自動保存':'保存できません · この画面では続けられます'}</span></div></main>
  ${drawer?`<div class="drawer-backdrop" data-action="close-menu"></div><aside class="step-drawer" role="dialog" aria-modal="true" aria-label="学習ステップ"><div class="drawer-heading"><span>学習の道すじ</span><button class="icon-button" data-action="close-menu" aria-label="閉じる">×</button></div>${stages.map((t,i)=>`<button data-stage="${i}" class="drawer-step ${s.stage===i?'active':''}" ${i>s.stage&&!completed.includes(i)&&!completed.includes(i-1)?'disabled':''}><small>${String(i+1).padStart(2,'0')}</small><span>${t.name}</span>${completed.includes(i)?icons.check:''}</button>`).join('')}<button class="text-button wide" data-action="about">この実験について</button></aside>`:''}
- ${modal?modalView():''}`;
+ ${modal?modalView():''}${demo?interactionDemo(demo):''}`;
  fitCircuitViewport();
  if(focusTitle)document.querySelector('h1').focus({preventScroll:true});
  else if(restoreSelector)document.querySelector(restoreSelector)?.focus({preventScroll:true});
@@ -235,6 +248,9 @@ app.addEventListener('click',e=>{
  const el=e.target.closest('button,[data-node],[data-slot],[data-plot],[data-action]');if(!el||el.disabled||el.closest('form'))return;
  if(skipDragClick&&el.matches('[data-drag-meter],[data-drag-probe]'))return;
  const node=el.dataset.node,slot=el.dataset.slot,action=el.dataset.action;
+ const activeDemo=pendingDemo();
+ if(action==='close-demo'){markDemoSeen(el.closest('[data-demo]')?.dataset.demo||activeDemo);render();return;}
+ if(activeDemo)markDemoSeen(activeDemo);
  if(action==='start-course'){home=false;changeStage(0);return;}
  if(action==='resume'){home=false;render({focusTitle:true});scheduleMeasurement();return;}
  if(action==='home'){home=true;drawer=false;modal=null;save();render();return;}
@@ -279,10 +295,10 @@ app.addEventListener('click',e=>{
  }
  if(action==='switch')scheduleMeasurement();
 });
-app.addEventListener('dragstart',e=>{const source=e.target.closest('[data-drag-meter],[data-drag-probe]');if(!source)return;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',source.dataset.dragMeter!==undefined?'meter':'probe');});
+app.addEventListener('dragstart',e=>{const source=e.target.closest('[data-drag-meter],[data-drag-probe]');if(!source)return;markDemoSeen(pendingDemo());e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',source.dataset.dragMeter!==undefined?'meter':'probe');});
 app.addEventListener('dragover',e=>{const target=e.target.closest('[data-slot],[data-node]');if(target)e.preventDefault();});
 app.addEventListener('drop',e=>{const target=e.target.closest('[data-slot],[data-node]');const kind=e.dataTransfer?.getData('text/plain');if(!target||!kind)return;e.preventDefault();remember();if(kind==='meter'&&target.dataset.slot)placeMeter(target.dataset.slot);else if(kind==='probe'&&target.dataset.node)placeProbe(target.dataset.node);else s.feedback=kind==='meter'?'ヒント：電流計は丸い「＋」へ。':'ヒント：電圧計は端子へ。';render();});
-app.addEventListener('pointerdown',e=>{const source=e.target.closest('[data-drag-meter],[data-drag-probe]');if(!source||e.button!==0||!e.isPrimary)return;pointerDrag={kind:source.dataset.dragMeter!==undefined?'meter':'probe',id:e.pointerId};source.setPointerCapture(e.pointerId);e.preventDefault();});
+app.addEventListener('pointerdown',e=>{const source=e.target.closest('[data-drag-meter],[data-drag-probe]');if(!source||e.button!==0||!e.isPrimary)return;markDemoSeen(pendingDemo());pointerDrag={kind:source.dataset.dragMeter!==undefined?'meter':'probe',id:e.pointerId};source.setPointerCapture(e.pointerId);e.preventDefault();});
 document.addEventListener('pointerup',e=>{if(!pointerDrag||pointerDrag.id!==e.pointerId)return;const {kind}=pointerDrag;pointerDrag=null;const target=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-slot],[data-node]');skipDragClick=true;setTimeout(()=>{skipDragClick=false;},0);remember();if(kind==='meter'&&target?.dataset.slot)placeMeter(target.dataset.slot);else if(kind==='probe'&&target?.dataset.node)placeProbe(target.dataset.node);else s.feedback=kind==='meter'?'ヒント：電流計は丸い「＋」へ。':'ヒント：電圧計は端子へ。';render();});
 document.addEventListener('pointercancel',e=>{if(pointerDrag?.id===e.pointerId)pointerDrag=null;});
 app.addEventListener('input',e=>{

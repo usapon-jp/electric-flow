@@ -40,3 +40,25 @@ main.material-home{display:block;overflow:auto}
 .hint-target-series [data-topology="series"],.hint-target-range [data-range],.hint-target-begin-practice [data-action="begin-practice"]{box-shadow:0 0 0 2px #d6e1c9;border-radius:9px}
 
 .hint-target-undo [data-action="undo"]{box-shadow:0 0 0 2px #d6e1c9;border-radius:9px}
+
+/* First-time operation coach */
+.coach-layer{position:fixed;right:clamp(16px,4vw,52px);bottom:clamp(16px,4vw,42px);z-index:18;width:min(340px,calc(100vw - 32px));pointer-events:none}
+.coach-card{background:#fffefaf2;border:1px solid #e2e6d8;border-radius:18px;padding:20px 22px 18px;box-shadow:0 18px 54px #2f3a2930;backdrop-filter:blur(12px)}
+.coach-card .panel-eyebrow{margin-bottom:7px}.coach-card h2{font-size:17px;margin-bottom:5px}.coach-card>p{margin:7px 0 0;color:#7f8778;font-size:11px;line-height:1.85;letter-spacing:.02em}.coach-card .primary{pointer-events:auto;margin-top:13px;min-height:42px;padding:10px 18px}
+.coach-scene{position:relative;height:112px;margin:8px 0 5px;border-radius:13px;background:linear-gradient(135deg,#f6f5ee,#eef1e8);overflow:hidden}
+.coach-dot,.coach-slot,.coach-meter{position:absolute;display:grid;place-items:center;z-index:2}.coach-dot{width:20px;height:20px;border:5px solid #eef1e7;border-radius:50%;background:#8e947d;box-shadow:0 0 0 1px #6f7868}.coach-meter{width:43px;height:43px;border-radius:50%;border:2px solid #819477;background:#fffdf8;color:#586c51;font:500 20px/1 Georgia,serif;box-shadow:0 5px 14px #5b66501f}.coach-slot{width:38px;height:38px;border:1.5px dashed #829878;border-radius:50%;background:#fbfcf6;color:#6c825f;font-size:20px}
+.coach-hand{position:absolute;z-index:4;width:42px;height:56px;overflow:visible;filter:drop-shadow(0 4px 4px #4e59411f);transform-origin:50% 12%}.coach-hand path{fill:#fffaf0;stroke:#6f8066;stroke-width:2.2;stroke-linejoin:round}.coach-tap-ring{fill:none;stroke:#91a681;stroke-width:2;opacity:0;animation:coach-ring 3.2s var(--ease) infinite}
+.coach-wiring .first{left:19%;top:42%}.coach-wiring .second{right:19%;top:42%}.coach-wire-line{position:absolute;z-index:1;left:25%;right:25%;top:51%;height:2px;background:#809174;transform-origin:left;animation:coach-wire-draw 3.2s var(--ease) infinite}.coach-wiring .coach-hand{animation:coach-wire-hand 3.2s var(--ease) infinite}
+.coach-current .coach-meter{left:18%;top:31%;animation:coach-current-meter 3.2s var(--ease) infinite}.coach-current .coach-slot{right:17%;top:33%}.coach-path{position:absolute;left:33%;right:28%;top:51%;border-top:1px dashed #aab3a0}.coach-current .coach-hand{animation:coach-current-hand 3.2s var(--ease) infinite}
+.coach-voltage .coach-meter{left:14%;top:32%}.coach-voltage .first{right:22%;top:18%}.coach-voltage .second{right:13%;bottom:16%}.coach-probe-line{position:absolute;left:27%;width:49%;top:50%;height:2px;background:#9ba88f;transform-origin:left;animation:coach-probe-draw 3.8s var(--ease) infinite}.coach-probe-line.one{transform:rotate(-18deg)}.coach-probe-line.two{transform:rotate(17deg);animation-delay:.35s}.coach-voltage .coach-hand{animation:coach-voltage-hand 3.8s var(--ease) infinite}
+@keyframes coach-ring{0%,12%,31%,46%,70%,100%{opacity:0;transform:scale(.55)}18%,40%,78%{opacity:.8;transform:scale(1.25)}}
+@keyframes coach-wire-hand{0%,12%{left:14%;top:30%}24%,34%{left:14%;top:30%;transform:scale(.92)}48%,60%{left:68%;top:30%;transform:scale(1)}72%,100%{left:68%;top:30%;transform:scale(.92)}}
+@keyframes coach-wire-draw{0%,48%{transform:scaleX(0);opacity:.2}66%,100%{transform:scaleX(1);opacity:1}}
+@keyframes coach-current-hand{0%,18%{left:19%;top:28%}58%,78%{left:67%;top:29%}100%{left:19%;top:28%}}
+@keyframes coach-current-meter{0%,18%{left:18%}58%,78%{left:69%}100%{left:18%}}
+@keyframes coach-voltage-hand{0%,12%{left:18%;top:29%}32%,42%{left:64%;top:9%}54%{left:18%;top:29%}78%,88%{left:73%;top:48%}100%{left:18%;top:29%}}
+@keyframes coach-probe-draw{0%,30%{transform:rotate(-18deg) scaleX(0);opacity:0}48%,100%{transform:rotate(-18deg) scaleX(1);opacity:1}}
+.coach-probe-line.two{animation-name:coach-probe-draw-two}@keyframes coach-probe-draw-two{0%,52%{transform:rotate(17deg) scaleX(0);opacity:0}75%,100%{transform:rotate(17deg) scaleX(1);opacity:1}}
+@media(max-width:600px){.coach-layer{left:12px;right:12px;bottom:12px;width:auto}.coach-card{padding:16px 18px 15px}.coach-scene{height:102px}}
+@media(orientation:landscape) and (max-height:430px){.coach-layer{left:auto;right:10px;bottom:10px;width:270px}.coach-card{padding:10px 12px}.coach-card .panel-eyebrow{display:none}.coach-card h2{font-size:13px;margin:0}.coach-card>p{font-size:9px;line-height:1.5;margin:4px 0}.coach-scene{height:58px;margin:4px 0}.coach-card .primary{min-height:32px;margin-top:5px;padding:6px 14px;font-size:9px}.coach-hand{width:29px;height:39px}.coach-meter{width:32px;height:32px;font-size:15px}.coach-slot{width:30px;height:30px;font-size:16px}.coach-dot{width:15px;height:15px;border-width:4px}}
+.coach-wiring .coach-hand{left:14%;top:30%}.coach-current .coach-hand{left:19%;top:28%}.coach-voltage .coach-hand{left:18%;top:29%}
