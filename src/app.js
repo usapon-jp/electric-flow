@@ -1,9 +1,10 @@
 import {solveCircuit, measuredVoltage, sameEdge, SINGLE_WIRES, LABELS, pretty} from './physics.js';
 import {stages,initialStage,examQuestions} from './stages.js';
+import {coachOverlay,coachControls,coachSteps} from './coach.js';
 import {circuitView,graphView,icons} from './circuit.js';
 
 const KEY='electric-flow-v1', app=document.querySelector('#app');
-let s=initialStage(0), completed=[], stageStates={}, drawer=false, modal=null, history=[], saveAvailable=true, measureTimer,celebrationStage=null,celebrationTimer,home=true,pointerDrag=null,skipDragClick=false,demoSeen={};
+let s=initialStage(0), completed=[], stageStates={}, drawer=false, modal=null, history=[], saveAvailable=true, measureTimer,celebrationStage=null,celebrationTimer,home=true,pointerDrag=null,skipDragClick=false,demoSeen={},demoStep=0,demoSession=null;
 function restoreState(raw) {
  if(!raw || !Number.isInteger(raw.stage) || raw.stage<0 || raw.stage>8)return null;
  const base=initialStage(raw.stage);
@@ -44,7 +45,13 @@ const model=()=>solveCircuit({...s,secondResistance:s.stage===5?15:s.resistance}
 function save(){try{localStorage.setItem(KEY,JSON.stringify({version:1,state:s,completed,stageStates,home}));saveAvailable=true;}catch{saveAvailable=false;}}
 function saveDemoSeen(){try{localStorage.setItem(KEY+'-demos',JSON.stringify(demoSeen));}catch{}}
 function pendingDemo(){if(home||modal||drawer)return null;if(s.stage===0&&!demoSeen.wiring)return'wiring';if(s.stage===2&&s.tour&&s.range&&!demoSeen.current)return'current';if(s.stage===3&&!demoSeen.voltage)return'voltage';return null;}
-function markDemoSeen(type){if(!type)return;demoSeen[type]=true;saveDemoSeen();}
+function firstDemoStep(type){
+ if(type==='wiring'){const index=SINGLE_WIRES.findIndex(pair=>!s.wires.some(w=>sameEdge(w,pair)));return index<0?3:index;}
+ if(type==='current')return recorded('single-before')&&!recorded('single-after')?1:0;
+ if(type==='voltage'){const index=['lamp1','battery','wire'].findIndex(k=>!recorded(`single-V-${k}`));return Math.max(0,index);}
+ return 0;
+}
+function markDemoSeen(type){if(!type)return;demoStep=0;demoSeen[type]=true;saveDemoSeen();}
 function recordVoltage(result){if(s.probes.length!==2||result.short||result.current<=0)return;const v=measuredVoltage(result,s.probes);if(v===null)return;const pairs={battery:['p','n'],lamp1:['a','b'],lamp2:['c','d'],wire:['p','a']};for(const [key,pair] of Object.entries(pairs))if(sameEdge(pair,s.probes))s.records[`${s.topology}-V-${key}`]=v;}
 const recorded=k=>s.records[k]!==undefined;
 function guide(){
@@ -132,15 +139,6 @@ function finished(){
 function choice(key,items){return `<div class="choices">${items.map(v=>`<button class="choice ${s.answers[key]===v?'correct':''}" data-choice="${key}" data-value="${escaped(v)}">${escaped(v)}${s.answers[key]===v?icons.check:''}</button>`).join('')}</div>`;}
 function checks(items){return `<div class="checklist">${items.map(([text,ok])=>`<div class="check-item ${ok?'done':''}"><span>${ok?icons.check:'<i></i>'}</span>${text}</div>`).join('')}</div>`;}
 function wireGesture(){return `<div class="wire-gesture" role="note" aria-label="つなぐ、外す操作の見本"><div><svg viewBox="0 0 108 48" aria-hidden="true"><circle cx="16" cy="18" r="5"/><circle cx="91" cy="18" r="5"/><path class="gesture-dash" d="M24 18h59"/><path class="gesture-hand" d="M54 43V27m0 0-5 5m5-5 5 5"/></svg><span>端子を2つタップ<br>→ つながる</span></div><div><svg viewBox="0 0 108 48" aria-hidden="true"><circle cx="16" cy="18" r="5"/><circle cx="91" cy="18" r="5"/><path class="gesture-wire" d="M24 18h59"/><path class="gesture-hand" d="M54 43V27m0 0-5 5m5-5 5 5"/></svg><span>同じ2点をもう一度<br>→ 外せる</span></div></div>`;}
-function coachHand(){return `<svg class="coach-hand" viewBox="0 0 64 82" aria-hidden="true"><circle class="coach-tap-ring" cx="31" cy="12" r="10"/><path d="M28 66c-6-6-10-14-10-22 0-4 5-6 8-3V17c0-5 8-5 8 0v20-8c0-5 8-5 8 0v9-6c0-5 8-5 8 0v9-4c0-5 8-5 8 0v12c0 13-8 23-19 27-4 2-8-5-11-10Z"/></svg>`;}
-function interactionDemo(type){
- const data={
-  wiring:{title:'端子を2つ、順番にタップ。',copy:'まず1つめ。次に、つなぎたい端子をタップすると線がつながるよ。',scene:`<span class="coach-dot first"></span><span class="coach-dot second"></span><span class="coach-wire-line"></span>${coachHand()}`},
-  current:{title:'電流計は、丸い「＋」へ。',copy:'Aの電流計をつかんで、回路の途中にある丸い「＋」まで動かすよ。',scene:`<span class="coach-meter">A</span><span class="coach-slot">＋</span><span class="coach-path"></span>${coachHand()}`},
-  voltage:{title:'Vの線を、両端につなぐ。',copy:'Vの線を片方の端子へ動かして、次にもう一方の端子にもつなぐよ。',scene:`<span class="coach-meter">V</span><span class="coach-dot first"></span><span class="coach-dot second"></span><span class="coach-probe-line one"></span><span class="coach-probe-line two"></span>${coachHand()}`}
- }[type];
- return `<div class="coach-layer coach-${type}" data-demo="${type}" role="dialog" aria-labelledby="coach-title"><div class="coach-card"><div class="panel-eyebrow">操作の見本</div><h2 id="coach-title">${data.title}</h2><div class="coach-scene" aria-hidden="true">${data.scene}</div><p>${data.copy}</p><button class="primary" data-action="close-demo">やってみる ${icons.arrow}</button></div></div>`;
-}
 function topologyControls(){return `<div class="segmented topology">${[['series','直列'],['parallel','並列']].map(([v,t])=>`<button data-topology="${v}" class="${s.topology===v?'active':''}" aria-pressed="${s.topology===v}">${t}</button>`).join('')}</div>`;}
 function reading(label,value,unit){return `<div class="reading"><span>${label}</span><strong>${value}<small>${unit}</small></strong></div>`;}
 function measurementTools(){return `<div class="tool-picker"><button data-tool="current" class="${s.tool==='current'?'active':''}" aria-pressed="${s.tool==='current'}"><span class="meter-icon">A</span>電流計</button><button data-tool="voltage" class="${s.tool==='voltage'?'active':''}" aria-pressed="${s.tool==='voltage'}"><span class="meter-icon">V</span>電圧計</button></div>`;}
@@ -185,13 +183,14 @@ function hintContent(step){if(s.stage!==2&&s.stage!==3)return step.text;return `
 function homeView(){return `<header class="site-header"><a class="brand" href="#" data-action="home" aria-label="教材の入口"><span>電気の流れ<span class="brand-dot"></span></span><small>A LITTLE CIRCUIT LAB</small></a></header><main class="material-home"><div class="home-kicker">中学2年 理科 · 回路と電流</div><h1 tabindex="-1">どれから、ためしてみる？</h1><p class="subtitle">小さな課題を解きながら、回路の見方をつかもう。</p><div class="home-actions"><button class="primary" data-action="start-course">最初の配線から始める ${icons.arrow}</button>${(completed.length||Object.keys(stageStates).length)?`<button class="secondary" data-action="resume">続きから：${stages[s.stage].name}</button>`:''}</div><section class="material-grid" aria-label="教材を選ぶ"><button class="material-card" data-material="compare"><span class="material-number">01</span><span class="material-icon paths-icon" aria-hidden="true"><i></i><i></i></span><span><strong>直列と並列</strong><small>2つのつなぎ方を、光でくらべる。</small></span><span class="material-arrow">${icons.arrow}</span></button><button class="material-card" data-material="measure"><span class="material-number">02</span><span class="material-icon meter-home-icon" aria-hidden="true">A<br><em>V</em></span><span><strong>測ってみよう</strong><small>電流計と電圧計を、回路につなぐ。</small></span><span class="material-arrow">${icons.arrow}</span></button></section><p class="home-note">教材を終えると、その流れで問題に進めます。</p><div class="bottom-meta"><span>この端末に自動保存</span><button class="text-button" data-action="about">この実験について</button></div></main>${modal?modalView():''}`;}
 const demos=['一周した回路では電流が流れます。表示の V は電圧、A は回路全体の電流です。','スイッチを開くと、回路は一周しなくなり、電流は 0 A になります。','電流計は回路の途中に入れます。電球の前も後も、電流は同じです。','電圧計は2点を選びます。つながった導線の両端は 0 V です。','直列は一本道、並列は枝分かれです。並列では片方を外しても別の枝は残ります。','枝分かれ前の電流は、2つの枝の電流を足した値です。','抵抗を変えずに電圧を上げると、電流も比例して増えます。','電圧が同じなら、抵抗が大きいほど電流は小さくなります。','実験の表とグラフを使うと、回路で見た関係を問題でも使えます。'];
 function introPanel(){return `<div class="lesson-intro"><div class="panel-eyebrow">まず、見本を見る</div><h2>${stages[s.stage].name}</h2><p>${demos[s.stage]}</p><button class="primary wide" data-action="begin-practice">触ってみる ${icons.arrow}</button></div>`;}
-function assistPanel(){const step=guide();const answer=s.stage===8?['端子 A・Bを選びます。電圧計は抵抗器と並列につなぎます。','横軸 3.0 V、縦軸 0.30 Aの点です。','R＝V÷I＝1.0÷0.10＝10 Ω。','I＝V÷R＝4.0÷10＝0.40 A。','抵抗器を同じにして、電圧だけを変えます。'][s.question]:s.stage===7?'R＝V÷I＝3.0÷0.15＝20 Ω。':s.stage===6?'4 Vでは0.40 A。抵抗が一定なので、電圧が2倍なら電流も2倍です。':null;return `<div class="assist-panel">${s.answerShown?`<p><b>見本・答え</b> ${answer||`${step.text} ${stages[s.stage].insight}`}</p>`:`<button class="text-button" data-action="answer">見本・答えを見る</button>`}</div>`;}
+function assistPanel(){const replay=s.stage===0||s.stage===3||(s.stage===2&&s.tour&&s.range);const step=guide();const answer=s.stage===8?['端子 A・Bを選びます。電圧計は抵抗器と並列につなぎます。','横軸 3.0 V、縦軸 0.30 Aの点です。','R＝V÷I＝1.0÷0.10＝10 Ω。','I＝V÷R＝4.0÷10＝0.40 A。','抵抗器を同じにして、電圧だけを変えます。'][s.question]:s.stage===7?'R＝V÷I＝3.0÷0.15＝20 Ω。':s.stage===6?'4 Vでは0.40 A。抵抗が一定なので、電圧が2倍なら電流も2倍です。':null;return `<div class="assist-panel">${replay?'<button class="text-button" data-action="replay-demo">操作の見本をもう一度</button>':''}${s.answerShown?`<p><b>見本・答え</b> ${answer||`${step.text} ${stages[s.stage].insight}`}</p>`:`<button class="text-button" data-action="answer">見本・答えを見る</button>`}</div>`;}
 function render({focusTitle=false}={}){
  const focused=document.activeElement;let restoreSelector=null;
  if(focused?.id)restoreSelector='#'+CSS.escape(focused.id);
  else if(focused?.dataset){for(const key of ['node','slot','view','tool','topology','choice','voltage','resistance','action','plot'])if(focused.dataset[key]){restoreSelector=`[data-${key}="${CSS.escape(focused.dataset[key])}"]`;if(key==='choice')restoreSelector+=`[data-value="${CSS.escape(focused.dataset.value)}"]`;break;}}
  if(home){app.className='material-home-page';app.innerHTML=homeView();if(modal)document.querySelector('.modal button')?.focus({preventScroll:true});return;}
  const r=model(),st=stages[s.stage],wasDone=completed.includes(s.stage),justDone=!wasDone&&finished(),done=wasDone||justDone,step=guide(),demoCircuit=s,demoResult=r,demo=pendingDemo();
+ if(demo!==demoSession){demoStep=firstDemoStep(demo);demoSession=demo;}
  if(justDone){completed.push(s.stage);celebrationStage=s.stage;clearTimeout(celebrationTimer);celebrationTimer=setTimeout(()=>{celebrationStage=null;app.classList.remove('just-achieved');},900);}save();
  const firstCircuitWired=s.stage===0&&SINGLE_WIRES.every(e=>s.wires.some(w=>sameEdge(e,w)));
  app.className=`stage-${s.stage}${done?' stage-complete':''}${celebrationStage===s.stage?' just-achieved':''}${firstCircuitWired&&!s.closed?' needs-switch':''}${s.hint?` hint-target-${step.target}`:''}`;
@@ -201,14 +200,14 @@ function render({focusTitle=false}={}){
  ${s.hint?`<div class="hint-strip" role="note">${hintContent(step)}<button data-action="hint" aria-label="ヒントを閉じる">×</button></div>`:''}
  ${isExam?'<p class="experiment-text">抵抗器 Rに加える電圧を変え、流れる電流を調べた。結果は下の表のようになった。</p>':''}
  <div class="workbench ${s.stage===6||isExam?'has-data':''} ${isExam?'exam':''} ${s.stage===2&&!s.tour?'lesson-demo':''}"><section class="circuit-area ${has('current-meter-ok')||has('voltage-lamp-ok')?'meter-success':''}" aria-label="回路を操作する"><div class="canvas-toolbar"><span class="canvas-label"><i class="${demoResult.current>0?'on':''}"></i>${circuitStatus(demoResult)}</span><div class="view-toggle" aria-label="回路の表示"><button data-view="real" aria-pressed="${!s.schematic}" class="${!s.schematic?'active':''}">実物</button><button data-view="diagram" aria-pressed="${s.schematic}" class="${s.schematic?'active':''}">回路図</button></div></div>
- <div class="circuit-wrap ${isExam&&has('rearranged')?'rearranged':''}">${circuitView(demoCircuit,demoResult,{exam:isExam})}</div><div class="circuit-readings" aria-label="電源と回路全体の測定値"><span>電池 <b>${pretty(demoCircuit.voltage,1)}</b> V</span><span>全体 <b>${pretty(demoResult.current)}</b> A</span></div><div class="canvas-bottom"><span>${s.stage===2&&s.range?'電流計を丸い「＋」へドラッグ':s.stage===3?'測る2つの端子をタップ':s.stage===0?(firstCircuitWired&&!s.closed?'スイッチを閉じる':s.selected?'もう一方の端子をタップ':'端子 → 端子'):s.tool==='voltage'?'2点を選んで測定':s.stage===5?'丸い＋をタップ':s.stage>=6?'電圧と電流の関係を観察':s.stage===1?'電流の向き：電池の外側は＋ → −':'スイッチをタップ'}</span><div class="canvas-actions"><button data-action="undo" class="icon-button" aria-label="操作を一つ戻す" ${history.length?'':'disabled'}><svg viewBox="0 0 24 24" fill="none"><path d="m9 6-5 5 5 5M4 11h10a5 5 0 0 1 0 10"/></svg></button><button data-action="reset" class="icon-button" aria-label="このステージをやり直す">${icons.reset}</button></div></div></section>
- <aside class="control-panel" aria-label="実験の操作と問い">${controls(r)+assistPanel()}</aside>
+ <div class="circuit-wrap ${isExam&&has('rearranged')?'rearranged':''}">${circuitView(demoCircuit,demoResult,{exam:isExam,overlay:demo?coachOverlay(demo,demoStep):''})}</div><div class="circuit-readings" aria-label="電源と回路全体の測定値"><span>電池 <b>${pretty(demoCircuit.voltage,1)}</b> V</span><span>全体 <b>${pretty(demoResult.current)}</b> A</span></div><div class="canvas-bottom"><span>${s.stage===2&&s.range?'電流計を丸い「＋」へドラッグ':s.stage===3?'測る2つの端子をタップ':s.stage===0?(firstCircuitWired&&!s.closed?'スイッチを閉じる':s.selected?'もう一方の端子をタップ':'端子 → 端子'):s.tool==='voltage'?'2点を選んで測定':s.stage===5?'丸い＋をタップ':s.stage>=6?'電圧と電流の関係を観察':s.stage===1?'電流の向き：電池の外側は＋ → −':'スイッチをタップ'}</span><div class="canvas-actions"><button data-action="undo" class="icon-button" aria-label="操作を一つ戻す" ${history.length?'':'disabled'}><svg viewBox="0 0 24 24" fill="none"><path d="m9 6-5 5 5 5M4 11h10a5 5 0 0 1 0 10"/></svg></button><button data-action="reset" class="icon-button" aria-label="このステージをやり直す">${icons.reset}</button></div></div></section>
+ <aside class="control-panel" aria-label="実験の操作と問い">${demo?coachControls(demo,demoStep):controls(r)+assistPanel()}</aside>
  ${s.stage===6||isExam?graphPanel():''}</div>
  <div class="feedback ${s.feedback?'visible':''}" role="status" aria-live="polite">${escaped(s.feedback)}</div>
  <footer class="lesson-footer"><div class="lesson-insight ${done?'revealed':''}">${done?`<span class="insight-mark">${icons.check}</span><p>${st.insight}</p>`:`<span class="quiet-label">今やること：${step.text}</span>`}</div>${s.stage<8?`<button class="primary next-button ${done?'ready':''}" data-action="next" ${done?'':'disabled'}>${done?nextLabel():'次へ'} ${icons.arrow}</button>`:`<button class="primary next-button ${done?'ready':''}" data-action="${done?'review':'back-to-experiment'}">${done?'振り返る':'実験で確かめる'} ${icons.arrow}</button>`}</footer>
  ${stageSteps()}<div class="bottom-meta"><span>中学2年 理科 <b>·</b> 回路と電流</span><button class="text-button" data-action="about">この実験について</button><span>${saveAvailable?'この端末に自動保存':'保存できません · この画面では続けられます'}</span></div></main>
  ${drawer?`<div class="drawer-backdrop" data-action="close-menu"></div><aside class="step-drawer" role="dialog" aria-modal="true" aria-label="学習ステップ"><div class="drawer-heading"><span>学習の道すじ</span><button class="icon-button" data-action="close-menu" aria-label="閉じる">×</button></div>${stages.map((t,i)=>`<button data-stage="${i}" class="drawer-step ${s.stage===i?'active':''}" ${i>s.stage&&!completed.includes(i)&&!completed.includes(i-1)?'disabled':''}><small>${String(i+1).padStart(2,'0')}</small><span>${t.name}</span>${completed.includes(i)?icons.check:''}</button>`).join('')}<button class="text-button wide" data-action="about">この実験について</button></aside>`:''}
- ${modal?modalView():''}${demo?interactionDemo(demo):''}`;
+ ${modal?modalView():''}`;
  fitCircuitViewport();
  if(focusTitle)document.querySelector('h1').focus({preventScroll:true});
  else if(restoreSelector)document.querySelector(restoreSelector)?.focus({preventScroll:true});
@@ -249,6 +248,8 @@ app.addEventListener('click',e=>{
  if(skipDragClick&&el.matches('[data-drag-meter],[data-drag-probe]'))return;
  const node=el.dataset.node,slot=el.dataset.slot,action=el.dataset.action;
  const activeDemo=pendingDemo();
+ if(action==='replay-demo'){const type=s.stage===0?'wiring':s.stage===2?'current':'voltage';delete demoSeen[type];demoStep=0;render();document.querySelector('.circuit-area')?.scrollIntoView({block:'nearest'});return;}
+ if(action==='demo-next'||action==='demo-prev'){demoStep=Math.max(0,Math.min(coachSteps[activeDemo].length-1,demoStep+(action==='demo-next'?1:-1)));render();return;}
  if(action==='close-demo'){markDemoSeen(el.closest('[data-demo]')?.dataset.demo||activeDemo);render();return;}
  if(activeDemo)markDemoSeen(activeDemo);
  if(action==='start-course'){home=false;changeStage(0);return;}

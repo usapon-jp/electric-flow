@@ -1,6 +1,6 @@
 import {POINTS,LABELS,circuitWires,pretty,measuredVoltage,SINGLE_WIRES,sameEdge} from './physics.js';
 export const icons={arrow:'<svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>',hint:'<svg viewBox="0 0 24 24" fill="none"><path d="M9 18h6m-5 3h4M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 2H9s0-1-1-2Z"/></svg>',reset:'<svg viewBox="0 0 24 24" fill="none"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/></svg>',check:'<svg viewBox="0 0 24 24" fill="none"><path d="m5 12 4 4 10-10"/></svg>'};
-function pathFor(a,b,topology) {
+export function pathFor(a,b,topology) {
   if(topology==='parallel'){
     if(a==='p'&&b==='a')return 'M90 235V292Q90 335 130 335H275';
     if(a==='p'&&b==='c')return 'M90 235H275';
@@ -37,7 +37,7 @@ function bulb(x,y,power,schematic,removed=false,label='',compact=false) {
 function resistor(x,y,schematic,label) {
 return `<g><g class="physical" opacity="${schematic?0:1}"><path d="M${x-65} ${y}h130" stroke="#9c9c90" stroke-width="5"/><rect x="${x-41}" y="${y-19}" width="82" height="38" rx="14" fill="url(#resistor)" stroke="#c3b48f"/><path d="M${x-24} ${y-18}v36m14-36v36m16-36v36" stroke="#896e45" stroke-width="6"/><path d="M${x+28} ${y-17}v34" stroke="#b79b51" stroke-width="4"/></g><g class="symbol" opacity="${schematic?1:0}" stroke="#475851" stroke-width="2.5" fill="#f9f8f4"><path d="M${x-65} ${y}h35m60 0h35"/><rect x="${x-30}" y="${y-14}" width="60" height="28"/></g><text x="${x}" y="${y+49}" class="part-label">${label}</text></g>`;
 }
-export function circuitView(s,r,{exam=false}={}) {
+export function circuitView(s,r,{exam=false,overlay=''}={}) {
 const schematic=s.schematic, active=r.current>.0001&&!r.short, resistance=s.stage>=6;
 const wires=circuitWires(s.topology,s.wires).map(e=>s.topology==='single'?(SINGLE_WIRES.find(w=>sameEdge(w,e))||e):e);
 const nodes=Object.keys(POINTS).filter(k=>s.topology!=='single'||!['c','d'].includes(k));
@@ -75,7 +75,7 @@ return `<svg class="circuit-svg ${active?'is-flowing':''} ${schematic?'is-schema
  ${s.tool==='current'&&!exam?slots.map(slot=>`<g class="meter-slot ${s.meter===slot.id?'chosen':''}" data-slot="${slot.id}" tabindex="0" role="button" aria-label="${slot.label}の電流をはかる"><circle cx="${slot.x}" cy="${slot.y}" r="42" fill="transparent"/><circle cx="${slot.x}" cy="${slot.y}" r="21" class="slot-disc"/><text x="${slot.x}" y="${slot.y+6}" class="slot-letter">${s.meter===slot.id?'A':'＋'}</text>${s.records[`${s.topology}-${slot.id}`]!==undefined?`<g class="meter-tag"><rect x="${slot.x-41}" y="${slot.y+28}" width="82" height="26" rx="8"/><text x="${slot.x}" y="${slot.y+46}">${pretty(slot.value)} A</text></g>`:''}</g>`).join(''):''}
  ${s.tool==='voltage'&&s.probes.length===2&&!exam?`<g class="voltmeter"><path d="M${POINTS[s.probes[0]]}Q${POINTS[s.probes[0]][0]} 409 318 400M${POINTS[s.probes[1]]}Q${POINTS[s.probes[1]][0]} 409 362 400" fill="none" stroke="#a48b66" stroke-width="2" stroke-dasharray="4 4"/><rect x="294" y="383" width="92" height="38" rx="12" fill="#fdfcf9" stroke="#d9d9cf"/><text x="340" y="407" class="meter-value">${pretty(voltage)} V</text></g>`:''}
  ${r.short?'<g><rect x="218" y="181" width="244" height="42" rx="12" fill="#f5e9dd"/><text x="340" y="208" class="short-label">ショート · アプリ内で通電停止</text></g>':''}
- </svg>`;
+ ${overlay}</svg>`;
 }
 export function graphView(samples,{guess=false,selected=null,exam=false,complete=false}={}){
  const w=360,h=220,left=45,bottom=181,right=335,top=20;
