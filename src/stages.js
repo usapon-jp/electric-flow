@@ -6,7 +6,7 @@ export const stages = [
   {name:'直列と並列',section:2,title:'直列と並列で、電球を外してみよう。',intro:'つなぎ方を変えて、明るさをくらべる。',hint:'並列では、一方の枝が切れても、もう一方に道が残ります。',insight:'一つの道が直列。枝分かれする道が並列。'},
   {name:'枝分かれの規則',section:2,title:'直列・並列の電流と電圧をくらべよう。',intro:'3か所をはかって、数値をくらべる。',hint:'並列の枝の電流を足すと、全体の電流になります。',insight:'直列：電流は同じ、電圧は和。並列：電圧は同じ、電流は和。'},
   {name:'電圧と電流',section:2,title:'電圧を変えて、電流を記録しよう。',intro:'抵抗器で、1・2・3 Vの電流を記録する。',hint:'抵抗は変えずに、電圧だけを変えてくらべます。',insight:'抵抗が一定なら、電流は電圧に比例する。'},
-  {name:'抵抗とオームの法則',section:2,title:'同じ電圧で、抵抗を変えてみよう。',intro:'同じ電圧で、抵抗を入れ替える。',hint:'同じ電圧なら、電流が小さいほど抵抗は大きくなります。',insight:'抵抗が一定なら V＝RI。抵抗は R＝V÷I で求められる。'},
+  {name:'抵抗とオームの法則',section:2,title:'同じ電圧で、抵抗を変えてみよう。',intro:'同じ電圧で、抵抗を入れ替える。',hint:'同じ電圧なら、電流が小さいほど抵抗は大きくなります。',insight:'図の抵抗器の抵抗 R は、電圧 V ÷ 電流 I で求められる。'},
   {name:'実験から、問題へ',section:3,title:'さっきの実験を、読み解く。',intro:'回路・表・グラフを手がかりに。',hint:'表の一組の電圧と電流から、V÷Iを考えます。',insight:'触った回路が、図になり、答えにつながる。'},
 ];
 export const initialStage = stage => ({
@@ -14,13 +14,13 @@ export const initialStage = stage => ({
   voltage:stage>=6?1:stage===5?3:1.5, resistance:stage>=6?10:7.5,
   wires:stage===0?[]:[['p','a'],['b','sr'],['sl','n']], closed:stage!==0,
   removed:false, selected:null, probes:[], tool:stage===3?'voltage':stage===2||stage===5?'current':null,
-  meter:null, range:null, records:{}, seen:[], answers:{}, samples:[], question:0, feedback:'', hint:false,
+  meter:null, range:null, records:{}, seen:[], answers:{}, samples:[], question:0, feedback:'', hint:false, helpStep:0,
   prediction:null, graphGuess:null, confirmed:false, examConnections:[], examPoints:[], tour:0, answerShown:false,
 });
 export const examQuestions = [
- {title:'抵抗器の電圧をはかるには？',kind:'connection',note:'抵抗器の両端へ直接つなぐ2点を選ぶ。'},
- {title:'3.0 Vの測定点は、どこ？',kind:'plot',note:'表を見て、グラフの点を選ぶ。'},
- {title:'この抵抗器の抵抗は？',kind:'number',unit:'Ω',answer:10,note:'電圧と電流を一組使う。'},
- {title:'4.0 Vでは、何A流れる？',kind:'number',unit:'A',answer:.4,note:'未測定の値を、予想する。'},
- {title:'変えずにおく条件は？',kind:'choice',choices:['抵抗器','電圧','電流'],answer:'抵抗器',note:'電圧と電流の関係を調べるとき。'},
+ {title:'抵抗器の電圧をはかるには？',kind:'connection',note:'図の四角い部品が抵抗器 R。電圧計 V は、はかりたい部品の両端につなぎます。'},
+ {title:'3.0 Vの測定点は、どこ？',kind:'plot',note:'表の「3.0 V」の行を見ます。グラフの横は電圧、縦は電流です。'},
+ {title:'この抵抗器の抵抗は？',kind:'number',unit:'Ω',answer:10,note:'R は図の四角い抵抗器の抵抗。表の電圧 V と電流 I を一組使います。'},
+ {title:'4.0 Vでは、何A流れる？',kind:'number',unit:'A',answer:.4,note:'同じ抵抗器 R に 4.0 V をかけたときの電流 I を求めます。'},
+ {title:'変えずにおく条件は？',kind:'choice',choices:['抵抗器','電圧','電流'],answer:'抵抗器',note:'電圧を変えると電流がどう変わるか、同じ部品で比べます。'},
 ];

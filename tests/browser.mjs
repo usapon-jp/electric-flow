@@ -28,7 +28,7 @@ for(const device of [{name:'desktop',width:1440,height:1000},{name:'tablet',widt
  };
  const next=async()=>{await page.locator('[data-action="next"]:not(:disabled)').waitFor();await click('[data-action="next"]');await begin();};
  const choose=async(k,v)=>click(`[data-choice="${k}"][data-value="${v}"]`);
- const assertGuide=async(text,target)=>{const first=(await page.locator('#app').getAttribute('class')).includes('stage-0');const guide=page.locator(first?'.current-task':'.lesson-insight');const actual=await guide.innerText();assert.ok(first?actual.includes('今やること')&&actual.includes(text):actual.includes(`今やること：${text}`));await click('[data-action="hint"]');assert.match(await page.locator('.hint-strip').innerText(),new RegExp(text));assert.ok((await page.locator('#app').getAttribute('class')).includes(`hint-target-${target}`));await click('[data-action="hint"]');};
+ const assertGuide=async(text,target)=>{const classes=await page.locator('#app').getAttribute('class');const first=classes.includes('stage-0');const guide=page.locator(first?'.current-task':'.lesson-insight');const actual=await guide.innerText();assert.ok(first?actual.includes('今やること')&&actual.includes(text):actual.includes(`今やること：${text}`));if(classes.match(/stage-[0-5](?:\s|$)/)){await click('[data-action="hint"]');assert.match(await page.locator('.hint-strip').innerText(),new RegExp(text));assert.ok((await page.locator('#app').getAttribute('class')).includes(`hint-target-${target}`));await click('[data-action="hint"]');}};
  const shot=async name=>{await page.screenshot({path:`artifacts/${device.name}-${name}.png`,fullPage:true});};
  const assertWidth=async()=>assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${device.name} horizontal overflow`);
  try{
@@ -82,19 +82,36 @@ for(const device of [{name:'desktop',width:1440,height:1000},{name:'tablet',widt
  await click('[data-voltage="3"]');await page.waitForTimeout(600);
  assert.equal(await page.locator('.samples tbody tr').count(),3);
  await click('[data-plot="0.2"] circle:nth-child(2)');assert.ok(await page.locator('[data-action="next"]').isDisabled());
+ assert.match(await page.locator('.help-steps').innerText(),/2\.0 V/);
  await click('[data-plot="0.4"] circle:nth-child(2)');await shot('07-graph');await next();
  await assertGuide('20 Ωを選び、電流を見くらべる。','resistance-20');
+ assert.match(await page.locator('.concept-note').first().innerText(),/R と書き/);
+ assert.match(await page.locator('.circuit-svg .part-label').first().textContent(),/抵抗器 R/);
  // Resistance and calculation. Wrong answer does not pass.
  await click('[data-resistance="20"]');await click('[data-resistance="30"]');
+ assert.match(await page.locator('.symbol-key').innerText(),/R.*抵抗器の抵抗/);
+ assert.match(await page.locator('.worked-example').innerText(),/3\.0 ÷ 0\.30/);
  await page.locator('#resistance-answer').fill('2');await click('[data-form="resistance"] button');assert.ok(await page.locator('[data-action="next"]').isDisabled());
+ assert.match(await page.locator('.help-steps').innerText(),/求める R/);
+ await click('[data-action="problem-hint"]');assert.match(await page.locator('.help-steps').innerText(),/3\.0 ÷ 0\.15/);
+ await click('[data-action="answer"]');assert.match(await page.locator('.worked-answer').innerText(),/20 Ω/);
  await page.locator('#resistance-answer').fill('２０');await click('[data-form="resistance"] button');await shot('08-ohm');await next();
  await assertGuide('抵抗器 Rの両端になる2点を選ぶ。','exam-nodes');
+ assert.match(await page.locator('.terminal-key').innerText(),/A・B は抵抗器の両側/);
  // Bridge problem, all five questions.
- await pair('p','n');await click('[data-action="check-connection"]');assert.equal(await page.locator('[data-action="next-question"]').count(),0);
+ await pair('p','n');await click('[data-action="check-connection"]');assert.equal(await page.locator('[data-action="next-question"]').count(),0);assert.match(await page.locator('.help-steps').innerText(),/はさむように/);
  await pair('a','b');await click('[data-action="check-connection"]');await click('[data-action="next-question"]');
+ assert.equal(await page.locator('.help-steps').count(),0);
+ assert.match(await page.locator('.concept-note').first().innerText(),/横は電圧、縦は電流/);
+ await click('[data-action="problem-hint"]');assert.match(await page.locator('.help-steps').innerText(),/3\.0 V/);
  await click('[data-plot="0.3"] circle:nth-child(2)');await click('[data-action="next-question"]');
+ assert.match(await page.locator('.symbol-key').innerText(),/I.*流れた電流/);
+ await click('[data-action="problem-hint"]');await click('[data-action="problem-hint"]');assert.match(await page.locator('.help-steps').innerText(),/1\.0 ÷ 0\.10/);
+ await click('[data-action="answer"]');assert.match(await page.locator('.worked-answer').innerText(),/10 Ω/);await shot('09-exam-resistance');
  await page.locator('[data-form="exam"] input').fill('10');await click('[data-form="exam"] button');await click('[data-action="next-question"]');
+ assert.match(await page.locator('.symbol-key').innerText(),/R.*抵抗器の抵抗/);
  await page.locator('[data-form="exam"] input').fill('0.4');await click('[data-form="exam"] button');await click('[data-action="next-question"]');
+ await choose('exam','電圧');assert.match(await page.locator('.help-steps').innerText(),/電圧と電流の関係/);
  await choose('exam','抵抗器');await click('[data-action="next-question"]');
  await page.getByRole('heading',{name:'回路から、答えまで。'}).waitFor();await assertWidth();await shot('09-complete');
  await page.reload();await page.getByRole('heading',{name:'回路から、答えまで。'}).waitFor();
