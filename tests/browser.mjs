@@ -28,11 +28,14 @@ for(const device of [{name:'desktop',width:1440,height:1000},{name:'tablet',widt
  };
  const next=async()=>{await page.locator('[data-action="next"]:not(:disabled)').waitFor();await click('[data-action="next"]');await begin();};
  const choose=async(k,v)=>click(`[data-choice="${k}"][data-value="${v}"]`);
- const assertGuide=async(text,target)=>{assert.match(await page.locator('.lesson-insight').innerText(),new RegExp(`今やること：${text}`));await click('[data-action="hint"]');assert.match(await page.locator('.hint-strip').innerText(),new RegExp(text));assert.ok((await page.locator('#app').getAttribute('class')).includes(`hint-target-${target}`));await click('[data-action="hint"]');};
+ const assertGuide=async(text,target)=>{const first=(await page.locator('#app').getAttribute('class')).includes('stage-0');const guide=page.locator(first?'.current-task':'.lesson-insight');const actual=await guide.innerText();assert.ok(first?actual.includes('今やること')&&actual.includes(text):actual.includes(`今やること：${text}`));await click('[data-action="hint"]');assert.match(await page.locator('.hint-strip').innerText(),new RegExp(text));assert.ok((await page.locator('#app').getAttribute('class')).includes(`hint-target-${target}`));await click('[data-action="hint"]');};
  const shot=async name=>{await page.screenshot({path:`artifacts/${device.name}-${name}.png`,fullPage:true});};
  const assertWidth=async()=>assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${device.name} horizontal overflow`);
  try{
  await page.goto(process.env.APP_URL || 'http://127.0.0.1:4173');await click('[data-action="start-course"]');await assertWidth();await shot('01-start');
+ assert.equal(await page.locator('.wire-gesture').count(),0);
+ assert.equal(await page.locator('.lesson-insight').innerText(),'');
+ assert.equal(await page.locator('.panel-copy [data-action="replay-demo"]').innerText(),'見本');
  await assertGuide('電池の＋端子と左の端子 Aをつなぐ。','pair-pa');
  assert.match(await page.locator('.canvas-label').innerText(),/まだつながっていません.*0.00 A/);
  // Wire an intentional short, then undo. No programmatic application-state changes.
@@ -59,8 +62,10 @@ for(const device of [{name:'desktop',width:1440,height:1000},{name:'tablet',widt
  await pair('a','b');assert.match(await page.locator('.meter-value').textContent(),/1.50/);
  await pair('p','n');await assertGuide('つながっている導線の両端、電池＋ → 電球の左端子 Aを選ぶ。','pair-pa');await pair('p','a');assert.match(await page.locator('.meter-value').textContent(),/0.00/);await shot('04-voltage');await next();
  // Series and parallel, predictions and removal.
- await choose('branch','もう一つは、つく');await click('[data-action="remove"]');
- await click('[data-topology="parallel"]');await click('[data-action="remove"]');await shot('05-parallel');await next();
+ assert.equal(await page.locator('[data-choice="branch"]').count(),0);
+ await click('[data-action="remove"]');
+ await click('[data-topology="parallel"]');await click('[data-action="remove"]');
+ await choose('branch','もう一つは、つく');await shot('05-parallel');await next();
  await assertGuide('電流計で、全体をはかる。','slot-before');
  // Unequal branches: current and voltage in both topologies.
  for(const slot of ['before','branch1','branch2'])await click(`[data-slot="${slot}"] .slot-disc`);

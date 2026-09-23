@@ -52,8 +52,8 @@ for(const device of devices.filter(device=>!process.env.LANDSCAPE_DEVICE||device
  await pair('a','b');assert.match(await page.locator('.meter-value').textContent(),/1.50/);
  await pair('p','n');await pair('p','a');assert.match(await page.locator('.meter-value').textContent(),/0.00/);await shot('04-voltage');await next();
  // Series and parallel, predictions and removal.
- await choose('branch','もう一つは、つく');await click('[data-action="remove"]');
- await click('[data-topology="parallel"]');await click('[data-action="remove"]');await shot('05-parallel');await next();
+ await click('[data-action="remove"]');
+ await click('[data-topology="parallel"]');await click('[data-action="remove"]');await choose('branch','もう一つは、つく');await shot('05-parallel');await next();
  // Unequal branches: current and voltage in both topologies.
  for(const slot of ['before','branch1','branch2'])await click(`[data-slot="${slot}"] .slot-disc`);
  await choose('sum','0.60 A');await click('[data-tool="voltage"]');await pair('a','b');await pair('c','d');await pair('p','n');
