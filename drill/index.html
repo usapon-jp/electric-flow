@@ -133,6 +133,45 @@ details[open].card summary{margin-bottom:8px}
 .gl{stroke:var(--green);stroke-width:2.2}
 .tick{font-size:11px;fill:var(--muted);text-anchor:middle;font-family:sans-serif}
 .axl{font-size:12px;fill:var(--muted);text-anchor:middle}
+.route{fill:none;stroke:none}
+.fdot{fill:var(--warm)}
+.flowbtn{flex-basis:100%;min-height:40px;border-radius:10px;font-size:14px;color:var(--warm)}
+.flowbtn:hover,.flowbtn.hl{background:var(--soft)}
+.flowbtn.on{color:var(--muted)}
+.flowcap{flex-basis:100%;font-size:14px;line-height:1.8;padding:0 8px 4px}
+
+/* ホームのモード */
+.modes{display:grid;gap:10px;margin:20px 0 8px}
+.mode{display:grid;grid-template-columns:1fr auto;grid-template-areas:"t s" "d s";align-items:center;gap:0 12px;text-align:left;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:14px 18px;min-height:64px}
+.mode:hover{border-color:var(--green)}
+.mode:disabled{opacity:.55;cursor:default}
+.mode:disabled:hover{border-color:var(--line)}
+.mt{grid-area:t;font-weight:600}
+.md{grid-area:d;font-size:13px;color:var(--muted);line-height:1.6}
+.ms{grid-area:s;font-size:13px;color:var(--muted)}
+h2.sec{margin:32px 0 0}
+.secondary{display:block;width:100%;min-height:50px;border-radius:14px;border:1px solid var(--line);background:var(--paper);font-size:16px;margin-top:10px}
+.secondary:hover{border-color:var(--green)}
+.fb.big{font-size:20px;font-weight:600;margin:0}
+
+/* カード */
+.flash{display:flex;flex-direction:column;justify-content:center;gap:12px;width:100%;min-height:260px;background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:24px;text-align:center}
+.ftag{font-size:12px;color:var(--muted);letter-spacing:.06em}
+.fq{font-size:20px;line-height:1.7}
+.fa{font-size:22px;font-weight:600;color:var(--good);line-height:1.6;animation:in .3s ease}
+.fn{font-size:14px;color:var(--muted)}
+.fhint{font-size:13px;color:var(--muted)}
+.judge{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.judge .choice{text-align:center}
+
+/* 結果 */
+.score{font-size:48px;font-weight:600;margin:8px 0 0;letter-spacing:.04em}
+.score small{font-size:20px;color:var(--muted);font-weight:400}
+.rlist{list-style:none;padding:0;margin:20px 0 0}
+.rlist li{display:flex;gap:12px;padding:10px 4px;border-top:1px solid var(--line);font-size:15px}
+.mark{width:1.2em;flex-shrink:0;font-weight:600}
+.mark.ok{color:var(--good)}
+.mark.ng{color:var(--bad)}
 
 @media (max-width:420px){
   #app{padding:0 16px 56px}
@@ -151,7 +190,7 @@ const FIG = {
   mixB: {type:'circuit', items:[{type:'par', top:'R₁ 12Ω', bottom:'R₂ 6Ω', volt:'P'}, {type:'r', label:'R₃', volt:'Q'}], battery:'15V', ammeter:true},
   mixC: {type:'circuit', items:[{type:'r', label:'A 2Ω'}, {type:'par', top:'B 6Ω', bottom:'C 3Ω'}], battery:'12V'},
   graph: {type:'graph'},
-  abc: {type:'circuit', items:[{type:'par', top:'R₁', bottom:'R₂', points:true}], battery:'電源'},
+  abc: {type:'circuit', items:[{type:'par', top:'R₁', bottom:'R₂', points:true, ohms:[10, 40]}], battery:'電源'},
 };
 
 const UNITS = [
@@ -503,10 +542,13 @@ function drawCircuit(f) {
   const total = widths.reduce((a, b) => a + b, 0);
   let x = L + (R - L - total) / 2 - (f.ammeter ? 12 : 0);
   let s = '', wire = [`M${L} ${Y}`];
+  // 電流の粒が通る道。＋極（長い線）から出て、上の枝と下の枝の2通り。
+  let rTop = `M174 ${B}H${L}V${Y}`, rBot = rTop;
   f.items.forEach((it, i) => {
     const w = widths[i], x0 = x, x1 = x + w;
     if (it.type === 'par') {
       const a = x0 + 12, b = x1 - 12, c = (x0 + x1) / 2;
+      rTop += `H${a}V26H${b}V${Y}`; rBot += `H${a}V94H${b}V${Y}`;
       wire.push(`H${a}`, `M${b} ${Y}`);
       s += `<path class="w" d="M${a} 26V94M${b} 26V94M${a} 26H${c-22}M${c+22} 26H${b}M${a} 94H${c-22}M${c+22} 94H${b}"/>`;
       s += `<circle class="dot" cx="${a}" cy="${Y}" r="3"/><circle class="dot" cx="${b}" cy="${Y}" r="3"/>`;
@@ -534,7 +576,37 @@ function drawCircuit(f) {
   s += `<path class="bat" d="M174 ${B-16}V${B+16}"/><path class="bat thick" d="M186 ${B-8}V${B+8}"/>`;
   s += `<text class="pm" x="166" y="${B-16}">＋</text>`;
   if (f.battery) s += `<text class="lbl" x="180" y="${B+36}">${f.battery}</text>`;
-  return `<svg class="fig" viewBox="0 0 360 240" role="img" aria-label="回路図">${s}</svg>`;
+  const w = flowWeight(f);
+  if (w != null) {
+    const end = `H${R}V${B}H186`;
+    s += `<path class="route" d="${rTop}${end}"/><path class="route" d="${rBot}${end}"/><g class="flowg"></g>`;
+  }
+  return `<svg class="fig" viewBox="0 0 360 240" role="img" aria-label="回路図"${w != null ? ` data-w="${w}"` : ''}>${s}</svg>`;
+}
+
+// 並列部分の抵抗値。ラベルの「6Ω」などから読む。
+function parOhms(it) {
+  return it.ohms || [it.top, it.bottom].map(t => parseFloat((String(t).match(/([\d.]+)Ω/) || [])[1]));
+}
+// 上の枝に流れる電流の割合（抵抗の逆数に比例）。並列がない図は null。
+function flowWeight(f) {
+  const par = f.items.find(it => it.type === 'par');
+  if (!par) return null;
+  const [a, b] = parOhms(par);
+  if (!(a > 0 && b > 0)) return null;
+  return (1 / a) / (1 / a + 1 / b);
+}
+function flowCaption(f) {
+  const par = f.items.find(it => it.type === 'par'), [a, b] = parOhms(par);
+  const gcd = (x, y) => y ? gcd(y, x % y) : x;
+  const x = Math.round(b * 100), y = Math.round(a * 100), g = gcd(x, y);
+  let t = a === b
+    ? `${par.top} と ${par.bottom} は同じ抵抗なので、電流はちょうど半分ずつに分かれる。`
+    : `${par.top} と ${par.bottom} では、電流は ${x / g}：${y / g} に分かれる。抵抗が小さいほうに多く流れる。`;
+  t += '分かれた電流は、合流するともとの量にもどる。';
+  const ser = f.items.filter(it => it.type === 'r');
+  if (ser.length) t += `直列の ${ser.map(it => it.label).join('・')} には、分かれる前の電流が全部流れる。`;
+  return t;
 }
 function drawGraph() {
   const X = v => 52 + v * 34, Yp = i => 222 - i * 240;
@@ -547,21 +619,283 @@ function drawGraph() {
   s += `<text class="axl" x="${X(4)}" y="${Yp(0)+40}">電圧［V］</text><text class="axl" x="${X(0)}" y="${Yp(0.8)-14}">電流［A］</text>`;
   return `<svg class="fig" viewBox="0 0 360 272" role="img" aria-label="電圧と電流のグラフ">${s}</svg>`;
 }
-function drawFig(f) {
+// flow: 動きを見るボタンを出すか・再生中か・目立たせるか
+function drawFig(f, flow = {}) {
   if (!f) return '';
   const list = Array.isArray(f) ? f : [f];
-  return `<div class="figs">${list.map(x => x.type === 'graph' ? drawGraph() : drawCircuit(x)).join('')}</div>`;
+  const moving = list.find(x => x.type === 'circuit' && flowWeight(x) != null);
+  let extra = '';
+  if (moving && flow.allowed) {
+    extra = `<button class="flowbtn${flow.on ? ' on' : ''}${flow.hl && !flow.on ? ' hl' : ''}" data-act="flow">${flow.on ? '■ 動きを止める' : '▶ 電流の動きを見る'}</button>`;
+    if (flow.on) extra += `<p class="flowcap">${esc(flowCaption(moving))}粒は＋極から出て、−極へもどる。</p>`;
+  }
+  return `<div class="figs">${list.map(x => x.type === 'graph' ? drawGraph() : drawCircuit(x)).join('')}${extra}</div>`;
 }
+
+// 電流の粒を動かす。枝ごとの粒の数が電流の大きさを表す。
+let flowRAF = 0, flowT0 = 0;
+function runFlow() {
+  cancelAnimationFrame(flowRAF);
+  if (!ps || !ps.flowOn) return;
+  const figs = [...app.querySelectorAll('svg[data-w]')].map(svg => {
+    const paths = [...svg.querySelectorAll('.route')], w = +svg.dataset.w, L = paths[0].getTotalLength();
+    // 上の枝の粒がちょうど割合どおりになる個数を選ぶ
+    let N = 60, err = 1;
+    for (let k = 56; k <= 72; k++) { const e = Math.abs(k * w - Math.round(k * w)); if (e < err - 1e-9) { err = e; N = k; } }
+    const g = svg.querySelector('.flowg');
+    g.innerHTML = '<circle class="fdot" r="3"/>'.repeat(N);
+    const dots = [...g.children].map((c, j) => ({ c, r: Math.floor((j + 1) * w) - Math.floor(j * w) === 1 ? 0 : 1 }));
+    return { paths, L, N, dots };
+  });
+  if (!figs.length) return;
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const frame = now => {
+    const d = still ? 0 : (now - flowT0) / 1000 * 60;
+    figs.forEach(F => F.dots.forEach((o, j) => {
+      const pt = F.paths[o.r].getPointAtLength((d + j * F.L / F.N) % F.L);
+      o.c.setAttribute('cx', pt.x.toFixed(1)); o.c.setAttribute('cy', pt.y.toFixed(1));
+    }));
+    if (!still && figs[0].paths[0].isConnected) flowRAF = requestAnimationFrame(frame);
+  };
+  frame(performance.now());
+}
+
+// 数字が毎回かわる問題（練習・テスト本番用）
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const fm = x => typeof x === 'number' ? String(+x.toFixed(4)) : String(x);
+const nice = (x, d = 2) => Number.isFinite(x) && Math.abs(x * 10 ** d - Math.round(x * 10 ** d)) < 1e-6;
+// 並列にすると合成抵抗が整数になる組
+const PAIRS = [[6,12],[3,6],[4,12],[10,15],[12,24],[20,30],[10,40],[20,20],[30,60],[8,24],[5,20],[15,30],[6,3],[12,4]];
+const parOf = (a, b) => a * b / (a + b);
+const parStep = (a, b, n1, n2) => ({t:`並列部分をまとめる。({{${a}|${n1}の抵抗}} × {{${b}|${n2}の抵抗}}) ÷ (${a} ＋ ${b})`, ask:{p:'並列部分は何Ω？', a:parOf(a, b), u:'Ω', wrongs:[[a + b,'たし算は直列です。かけ算÷たし算で。']]}});
+
+// 各関数は問題を1つ返す。数字が割り切れないときは undefined を返し、作り直す。
+const GEN = {
+  ohmR() {
+    const R = pick([100,150,200,250,300,400,500,600]), V = pick([3,6,9,12]), mA = V / R * 1000, A = mA / 1000;
+    if (!nice(mA, 1)) return;
+    return { topic:'オームの法則', q:`ある抵抗器に ${V}V の電圧を加えると、${fm(mA)}mA の電流が流れた。この抵抗器の抵抗は何Ωか。`,
+      given:[['電圧',`${V}V`,''],['電流',`${fm(mA)}mA`,'計算の前にAに直す']],
+      steps:[{t:'mAをAに直す。1A ＝ 1000mA なので、1000でわる。', ask:{p:`${fm(mA)}mA は何A？`, a:A, u:'A', wrongs:[[mA,'mAのままです。1000でわります。']]}},
+        {t:`抵抗 ＝ 電圧 ÷ 電流 ＝ {{${V}|抵抗器にかかる電圧}} ÷ {{${fm(A)}|抵抗器に流れる電流（Aに直した）}} ＝ ${R}`}],
+      a:R, u:'Ω', wrongs:[[V / mA,'mAのまま計算しています。Aに直してから計算しよう。'],[V * A,'抵抗は 電圧÷電流 です。かけ算ではありません。']],
+      point:'計算の前に、mAはAに直す。' };
+  },
+  ohmI() {
+    const R = pick([20,30,40,50,60,100,120,200]), V = pick([2,3,4,6,8,12]), A = V / R, mA = A * 1000;
+    if (!nice(mA, 1) || !nice(A, 4)) return;
+    return { topic:'オームの法則', q:`${R}Ω の抵抗器に ${V}V の電圧を加えた。流れる電流は何mAか。`,
+      given:[['抵抗',`${R}Ω`,''],['電圧',`${V}V`,'']],
+      steps:[{t:`電流 ＝ 電圧 ÷ 抵抗 ＝ {{${V}|抵抗器に加えた電圧}} ÷ {{${R}|抵抗器の抵抗}}`, ask:{p:'何A？', a:A, u:'A'}},
+        {t:`問題は「何mA」と聞いているので、1000をかける。${fm(A)}A ＝ ${fm(mA)}mA。`}],
+      a:mA, u:'mA', wrongs:[[A,'それはAの値です。1000をかけてmAに直します。'],[V * R,'電流は 電圧÷抵抗 です。']],
+      point:'聞かれている単位で答える。' };
+  },
+  parI() {
+    const [r1, r2] = pick([[10,30],[10,40],[6,12],[5,20],[4,12],[20,30],[15,30],[10,20],[6,3],[12,4]]), V = pick([3,6,12,24]);
+    const i1 = V / r1, i2 = V / r2;
+    if (!nice(i1) || !nice(i2)) return;
+    return { topic:'並列回路の電流', fig:FIG.par2(`R₁ ${r1}Ω`, `R₂ ${r2}Ω`, `${V}V`),
+      q:`図のように、${r1}Ω の抵抗 R₁ と ${r2}Ω の抵抗 R₂ を並列につなぎ、${V}V の電源につないだ。電源から流れ出る電流は何Aか。`,
+      given:[['R₁',`${r1}Ω`,''],['R₂',`${r2}Ω`,''],['電源',`${V}V`,'']],
+      steps:[{t:`並列では、どの枝にも電源と同じ電圧がかかる。R₁にもR₂にも ${V}V。`},
+        {t:`R₁の電流 ＝ {{${V}|R₁にかかる電圧}} ÷ {{${r1}|R₁の抵抗}}`, ask:{p:'R₁の電流は何A？', a:i1, u:'A'}},
+        {t:`R₂の電流 ＝ {{${V}|R₂にかかる電圧（並列なので同じ）}} ÷ {{${r2}|R₂の抵抗}}`, ask:{p:'R₂の電流は何A？', a:i2, u:'A'}},
+        {t:`2つの枝の電流は、電源にもどる前に合流する。{{${fm(i1)}|R₁の電流}} ＋ {{${fm(i2)}|R₂の電流}} ＝ ${fm(i1 + i2)}A。`}],
+      a:i1 + i2, u:'A', wrongs:[[V / (r1 + r2),'抵抗をたしてからわるのは直列の考え方です。並列では、それぞれに電源の電圧がかかります。'],[i1,'それはR₁だけの電流です。R₂の分もたします。'],[i2,'それはR₂だけの電流です。R₁の分もたします。']],
+      point:'並列は「電圧は同じ、電流は分け合う」。' };
+  },
+  parR() {
+    let [a, b] = pick(PAIRS); if (Math.random() < .5) [a, b] = [b, a];
+    const r = parOf(a, b);
+    return { topic:'並列の合成抵抗', fig:FIG.par2(`${a}Ω`, `${b}Ω`),
+      q:`${a}Ω の抵抗と ${b}Ω の抵抗を並列につないだ。合成抵抗は何Ωか。`,
+      given:[['1つ目',`${a}Ω`,''],['2つ目',`${b}Ω`,'']],
+      steps:[{t:`かけ算：{{${a}|1つ目の抵抗}} × {{${b}|2つ目の抵抗}}`, ask:{p:'かけ算の答えは？', a:a * b, u:''}},
+        {t:`たし算：${a} ＋ ${b}`, ask:{p:'たし算の答えは？', a:a + b, u:''}},
+        {t:`わる：{{${a * b}|かけ算の答え}} ÷ {{${a + b}|たし算の答え}} ＝ ${r}`},
+        {t:`確かめ：いちばん小さい ${Math.min(a, b)}Ω より小さいので、おかしくない。`}],
+      a:r, u:'Ω', wrongs:[[a + b,'たし算は直列の合成抵抗です。'],[a * b,'かけ算のあと、たし算の答えでわります。'],[1 / r,'それは 1/R の値です。ひっくり返します。']],
+      point:'並列の合成抵抗 ＜ いちばん小さい抵抗。' };
+  },
+  mix() {
+    const [r1, r2] = pick(PAIRS), R3 = pick([2,3,4,5,6,8,10]), I = pick([0.5,1,1.5,2,3]);
+    const Rp = parOf(r1, r2), Rt = Rp + R3, V = I * Rt;
+    if (!Number.isInteger(V) || V > 36 || R3 === Rp) return;
+    const base = [parStep(r1, r2, 'R₁', 'R₂'), {t:`全体の抵抗 ＝ 並列部分 ＋ R₃ ＝ {{${Rp}|並列部分の合成抵抗}} ＋ {{${R3}|R₃の抵抗}} ＝ ${Rt}Ω`}];
+    const cur = {t:`全体の電流 ＝ {{${V}|電源の電圧}} ÷ {{${Rt}|全体の抵抗}}`, ask:{p:'全体の電流は何A？', a:I, u:'A'}};
+    const P = {
+      total:{q:'回路全体の抵抗は何Ωか。', steps:base, a:Rt, u:'Ω',
+        wrongs:[[r1 + r2 + R3,'R₁とR₂は並列です。先に1つの抵抗にまとめます。'],[Rp,'それは並列部分だけです。直列のR₃もたします。']],
+        point:'並列部分をまとめてから、直列としてたす。'},
+      vp:{q:'並列部分（R₁とR₂）にかかる電圧は何Vか。', a:I * Rp, u:'V',
+        steps:[...base, cur, {t:`直列なので、並列部分にも全体の電流が入る。{{${fm(I)}|全体の電流}} × {{${Rp}|並列部分の合成抵抗}} ＝ ${fm(I * Rp)}V`}],
+        wrongs:[[V,'それは電源の電圧です。並列部分にかかるのはその一部です。'],[I * R3,'それはR₃の電圧です。'],[I * r1,'R₁だけの抵抗を使っています。並列部分全体の抵抗を使います。']],
+        point:'まとめた抵抗 × 流れこむ電流 ＝ その部分の電圧。'},
+      v3:{q:'R₃ にかかる電圧は何Vか。', a:I * R3, u:'V',
+        steps:[...base, cur, {t:`R₃にも全体の電流が流れる。{{${fm(I)}|全体の電流}} × {{${R3}|R₃の抵抗}} ＝ ${fm(I * R3)}V`}],
+        wrongs:[[I * Rp,'それは並列部分の電圧です。'],[V,'それは電源の電圧です。']],
+        point:'直列部分の電圧 ＝ 全体の電流 × その抵抗。'},
+    }[pick(['total','vp','v3'])];
+    return { topic:'並列と直列がまざった回路',
+      fig:{type:'circuit', items:[{type:'par', top:`R₁ ${r1}Ω`, bottom:`R₂ ${r2}Ω`}, {type:'r', label:`R₃ ${R3}Ω`}], battery:`${V}V`},
+      context:`図のように、抵抗 R₁（${r1}Ω）と R₂（${r2}Ω）を並列につなぎ、それに抵抗 R₃（${R3}Ω）を直列につないで ${V}V の電源につないだ。`,
+      given:[['R₁',`${r1}Ω`,''],['R₂',`${r2}Ω`,''],['R₃',`${R3}Ω`,''],['電源',`${V}V`,'']], ...P };
+  },
+  mixp() {
+    const [rb, rc] = pick(PAIRS), Ra = pick([1,2,3,4,6]), I = pick([1.5,2,3]);
+    const Rp = parOf(rb, rc), Rt = Ra + Rp, V = I * Rt, Va = I * Ra, Vp = I * Rp;
+    if (!Number.isInteger(V) || V > 36) return;
+    const k = pick(['A','B','C']), rx = k === 'B' ? rb : rc, Ix = Vp / rx;
+    if (!nice(Ix) || !nice(Vp * Ix) || !nice(Va * I)) return;
+    const base = [parStep(rb, rc, 'B', 'C'),
+      {t:`全体の抵抗 ＝ {{${Ra}|Aの抵抗}} ＋ {{${Rp}|並列部分の合成抵抗}} ＝ ${Rt}Ω`},
+      {t:`全体の電流 ＝ {{${V}|電源の電圧}} ÷ {{${Rt}|全体の抵抗}}`, ask:{p:'全体の電流は何A？', a:I, u:'A'}},
+      {t:`Aの電圧 ＝ {{${fm(I)}|Aの電流（直列なので全体の電流）}} × {{${Ra}|Aの抵抗}}`, ask:{p:'Aの電圧は何V？', a:Va, u:'V'}}];
+    const P = k === 'A'
+      ? {steps:[...base, {t:`電力 ＝ {{${fm(Va)}|Aの電圧}} × {{${fm(I)}|Aの電流}} ＝ ${fm(Va * I)}W`}], a:Va * I,
+         wrongs:[[Va,'それはAの電圧です。電力は 電圧×電流。'],[V * I,'Aにかかる電圧は、電源の電圧ではありません。']],
+         point:'電力を出すには、その部品の電圧と電流の両方が必要。'}
+      : {steps:[...base,
+          {t:`並列部分の電圧 ＝ {{${V}|電源の電圧}} − {{${fm(Va)}|Aの電圧}} ＝ ${fm(Vp)}V。BにもCにも ${fm(Vp)}V。`},
+          {t:`${k}の電流 ＝ {{${fm(Vp)}|${k}にかかる電圧}} ÷ {{${rx}|${k}の抵抗}}`, ask:{p:`${k}の電流は何A？`, a:Ix, u:'A'}},
+          {t:`電力 ＝ {{${fm(Vp)}|${k}の電圧}} × {{${fm(Ix)}|${k}の電流}} ＝ ${fm(Vp * Ix)}W`}], a:Vp * Ix,
+         wrongs:[[Ix,`それは${k}の電流です。電力は 電圧×電流。`],[V * V / rx,`${k}にかかるのは電源の電圧ではなく、並列部分の電圧です。`]],
+         point:'並列部分の電圧 ＝ 電源 − 直列部分の電圧。'};
+    return { topic:'まざった回路の電力',
+      fig:{type:'circuit', items:[{type:'r', label:`A ${Ra}Ω`}, {type:'par', top:`B ${rb}Ω`, bottom:`C ${rc}Ω`}], battery:`${V}V`},
+      context:`図のように、抵抗 A（${Ra}Ω）に、抵抗 B（${rb}Ω）と抵抗 C（${rc}Ω）の並列部分を直列につなぎ、${V}V の電源につないだ。`,
+      q:`抵抗${k}の消費電力は何Wか。`, given:[['A',`${Ra}Ω`,''],['B',`${rb}Ω`,''],['C',`${rc}Ω`,''],['電源',`${V}V`,'']], u:'W', ...P };
+  },
+  power() {
+    const R = pick([5,10,20,25,40,50]), I = pick([0.5,1.5,2,3]), V = I * R;
+    if (!nice(V, 1) || V > 150) return;
+    return { topic:'電力', q:`${R}Ω の電熱線に ${fm(I)}A の電流が流れている。電熱線の電力は何Wか。`,
+      given:[['抵抗',`${R}Ω`,''],['電流',`${fm(I)}A`,''],['電圧','書いていない','先に求める']],
+      steps:[{t:'電力 ＝ 電圧 × 電流。でも電圧が書いていないので、先に電圧を出す。'},
+        {t:`電圧 ＝ 電流 × 抵抗 ＝ {{${fm(I)}|電熱線の電流}} × {{${R}|電熱線の抵抗}}`, ask:{p:'電圧は何V？', a:V, u:'V'}},
+        {t:`電力 ＝ {{${fm(V)}|いま出した電圧}} × {{${fm(I)}|電熱線の電流}} ＝ ${fm(V * I)}W`}],
+      a:V * I, u:'W', wrongs:[[V,'それは電圧です。電力は 電圧×電流 です。']],
+      point:'電圧がなければ、オームの法則で先に出す。' };
+  },
+  hyoji() {
+    const W = pick([200,250,400,500,800]), I = W / 100, R = 100 / I;
+    if (!nice(R)) return;
+    return { topic:'電力', q:`「100V−${W}W」と表示された電熱線の抵抗は何Ωか。`,
+      given:[['電圧','100V','表示より'],['電力',`${W}W`,'表示より（100Vで使ったとき）']],
+      steps:[{t:`「100V−${W}W」は「100Vで使うと ${W}W になる」という意味。`},
+        {t:`電流 ＝ 電力 ÷ 電圧 ＝ {{${W}|表示の電力}} ÷ {{100|表示の電圧}}`, ask:{p:'電流は何A？', a:I, u:'A'}},
+        {t:`抵抗 ＝ 電圧 ÷ 電流 ＝ {{100|表示の電圧}} ÷ {{${fm(I)}|いま出した電流}} ＝ ${fm(R)}Ω`}],
+      a:R, u:'Ω', wrongs:[[I,'それは電流です。次に 電圧÷電流 で抵抗を出します。'],[100 / W,'電流 ＝ 電力÷電圧 です。']],
+      point:'電圧と電力 → 電流 → 抵抗 の順。' };
+  },
+  kwh() {
+    const W = pick([400,500,600,800,1000,1200,1500]);
+    const [tl, h] = pick([['30分',0.5],['1時間30分',1.5],['2時間',2],['45分',0.75],['2時間30分',2.5],['15分',0.25]]);
+    const kW = W / 1000, ans = kW * h;
+    if (!nice(ans, 3)) return;
+    // 「1時間30分 → 1.3時間」のまちがい
+    const bad = Math.floor(h) + Math.round((h % 1) * 60) / 100;
+    return { topic:'電力量', q:`${W}W の電気器具を ${tl} 使った。電力量は何kWhか。`,
+      given:[['電力',`${W}W`,''],['時間',tl,'']],
+      steps:[{t:'答えの単位が kWh なので、電力は kW、時間は「時間」にそろえる。'},
+        {t:'1kW ＝ 1000W なので、1000でわる。', ask:{p:`${W}W は何kW？`, a:kW, u:'kW', wrongs:[[W / 100,'1000でわると、小数点は左へ3つ動きます。']]}},
+        ...(Number.isInteger(h) ? [] : [{t:`${tl} を「時間」に直す。分は60でわる。`, ask:{p:'何時間？', a:h, u:'時間', wrongs:[[bad,'分を「時間」にするときは、100ではなく60でわります。']]}}]),
+        {t:`{{${fm(kW)}|電力（kW）}} × {{${fm(h)}|時間}} ＝ ${fm(ans)}kWh`}],
+      a:ans, u:'kWh', wrongs:[[W * h,'Whになっています。1000でわってkWhに直します。'], ...(bad !== h ? [[kW * bad,'時間の直し方を確認しよう。分は60でわって時間にします。']] : [])],
+      point:'kWhのときは、kWと「時間」にそろえる。' };
+  },
+  joule() {
+    const W = pick([100,200,300,500,600,1000,1200]), m = pick([1,2,3,5,10]), s = m * 60;
+    return { topic:'熱量', q:`${W}W のヒーターに ${m}分間 電流を流した。発生する熱量は何Jか。`,
+      given:[['電力',`${W}W`,''],['時間',`${m}分`,'秒に直す']],
+      steps:[{t:'熱量(J) ＝ 電力(W) × 時間(秒)。1Wを1秒使うと1J。'},
+        {t:`${m}分を秒に直す。`, ask:{p:`${m}分は何秒？`, a:s, u:'秒'}},
+        {t:`{{${W}|ヒーターの電力}} × {{${s}|時間（秒）}} ＝ ${W * s}J`}],
+      a:W * s, u:'J', wrongs:[[W * m,'分のまま計算しています。秒に直します。']],
+      point:'Jのときは秒。kWhのときは時間。' };
+  },
+  ratio() {
+    const k = pick([2,3,4]), kind = pick(['v','i','s','p']), topic = '何倍になる？';
+    if (kind === 'v' || kind === 'i') {
+      const v = pick([2,3,4,5]), what = kind === 'v' ? '電圧' : '電流', other = kind === 'v' ? '電流' : '電圧';
+      return { topic, q: kind === 'v' ? `同じ電熱線に加える電圧を ${v}V から ${v * k}V にした。消費電力は何倍になるか。` : `同じ電熱線に流れる電流を ${k}倍にした。消費電力は何倍になるか。`,
+        given:[['電熱線','同じ','抵抗は変わらない'],[what, kind === 'v' ? `${v}V → ${v * k}V` : `${k}倍`,'']],
+        steps:[{t:'「同じ電熱線」なので抵抗は変わらない。'},
+          {t:`${what}が ${k}倍。抵抗が同じなので、${other}も ${k}倍になる。`},
+          {t:`電力 ＝ 電圧 × 電流 ＝ ${k}倍 × ${k}倍 ＝ ${k * k}倍`}],
+        a:k * k, u:'倍', wrongs:[[k,`${what}が${k}倍になると、${other}も${k}倍になります。電力は 電圧×電流。`]],
+        point:'抵抗が同じなら「□倍 → □×□倍」。' };
+    }
+    const r = pick([5,10,20]), R = r * k;
+    if (kind === 's') return { topic, q:`直列につないだ ${r}Ω と ${R}Ω の電熱線がある（流れる電流は等しい）。${R}Ω の電熱線の消費電力は、${r}Ω の何倍か。`,
+      given:[['電流','等しい','直列なので同じ'],['抵抗',`${r}Ω と ${R}Ω`,'']],
+      steps:[{t:`今回は「電流が同じ」。抵抗は ${R} ÷ ${r} ＝ ${k}倍。`},
+        {t:`電圧 ＝ 電流 × 抵抗。電流が同じで抵抗が${k}倍なので、電圧も${k}倍。`},
+        {t:`電力 ＝ 電圧 × 電流 ＝ ${k}倍 × 1倍（電流は同じ）＝ ${k}倍`}],
+      a:k, u:'倍', wrongs:[[k * k,'電流は同じなので、2乗しません。'],[1 / k,'逆です。直列では、抵抗が大きいほうが電圧も電力も大きくなります。']],
+      point:'電流が同じなら、電力は抵抗に比例。' };
+    return { topic, q:`並列につないだ ${r}Ω と ${R}Ω の電熱線がある（かかる電圧は等しい）。${r}Ω の電熱線の消費電力は、${R}Ω の何倍か。`,
+      given:[['電圧','等しい','並列なので同じ'],['抵抗',`${r}Ω と ${R}Ω`,'']],
+      steps:[{t:'今回は「電圧が同じ」。抵抗が小さいほうが電流は多く流れる。'},
+        {t:`数字で確かめ：電圧を仮に ${R}V とする。${r}Ω → ${k}A → ${R * k}W。${R}Ω → 1A → ${R}W。`},
+        {t:`${R * k} ÷ ${R} ＝ ${k}倍`}],
+      a:k, u:'倍', wrongs:[[1 / k,'逆です。電圧が同じなら、抵抗が小さいほうが電流も電力も大きくなります。'],[k * k,'電圧は同じなので、2乗しません。']],
+      point:'何が同じかで、答えが変わる。' };
+  },
+};
+const UNIT_GENS = { ohm:['ohmR','ohmI','parI'], par:['parR'], mix:['mix'], power:['power','hyoji','kwh','joule'], mixp:['mixp'], ratio:['ratio'] };
+function makeGen(name) {
+  for (let k = 0; k < 500; k++) { const p = GEN[name](); if (p) return p; }
+  throw new Error('問題を作れませんでした: ' + name);
+}
+
+// テスト前チェックのカード [id, 分野, 表, 裏, ひとこと]
+const CARDS = [
+  ['v','オームの法則','電圧を求める式は？','電圧 ＝ 電流 × 抵抗','単位で書くと V ＝ A × Ω'],
+  ['i','オームの法則','電流を求める式は？','電流 ＝ 電圧 ÷ 抵抗',''],
+  ['r','オームの法則','抵抗を求める式は？','抵抗 ＝ 電圧 ÷ 電流',''],
+  ['ma','単位','1A は何mA？','1000mA','mA → A は1000でわる'],
+  ['ma2','単位','250mA は何A？','0.25A','1000でわると、小数点は左へ3つ'],
+  ['dir','回路','電流の向きは？','＋極から出て、−極へもどる',''],
+  ['meter','回路','電流計と電圧計のつなぎ方は？','電流計は直列、電圧計は並列',''],
+  ['si','直列回路','直列回路の電流は？','どこでも同じ',''],
+  ['sv','直列回路','直列回路の電圧は？','各部分の電圧をたすと、電源の電圧',''],
+  ['sr','直列回路','直列の合成抵抗は？','たし算：R ＝ R₁ ＋ R₂',''],
+  ['pv','並列回路','並列回路の電圧は？','どの枝も電源と同じ',''],
+  ['pi','並列回路','並列回路の電流は？','枝の電流をたすと、全体の電流',''],
+  ['pflow','並列回路','並列で、電流が多く流れるのはどの枝？','抵抗が小さい枝',''],
+  ['pr','並列回路','並列の合成抵抗の公式は？','1/R ＝ 1/R₁ ＋ 1/R₂','最後にひっくり返すのを忘れない'],
+  ['pr2','並列回路','抵抗が2つの並列の裏ワザは？','(かけ算) ÷ (たし算)','抵抗が2つのときだけ使える'],
+  ['pr3','並列回路','並列の合成抵抗は、いちばん小さい抵抗と比べてどうなる？','必ず小さくなる','答えの見直しに使える'],
+  ['pr4','並列回路','同じ抵抗を2つ並列にすると、合成抵抗は？','半分になる','20Ωが2つなら10Ω'],
+  ['w','電力','電力を求める式は？','電力(W) ＝ 電圧(V) × 電流(A)',''],
+  ['hyoji','電力','「100V−500W」の意味は？','100Vで使うと、500Wになる',''],
+  ['j','熱量','熱量を求める式は？','熱量(J) ＝ 電力(W) × 時間(秒)','Jのときは秒'],
+  ['kwh','電力量','電力量(kWh)を求める式は？','電力量(kWh) ＝ 電力(kW) × 時間(時間)','kWhのときは「時間」'],
+  ['wh','電力量','1kWh は何Wh？','1000Wh',''],
+  ['time','単位','1時間30分は何時間？','1.5時間','1.3時間ではない。分は60でわる'],
+  ['sec','単位','5分は何秒？','300秒','1分 ＝ 60秒'],
+  ['rsame','何倍になる？','同じ抵抗で電圧を2倍にすると、電力は？','4倍','電流も2倍になるので 2×2'],
+  ['rser','何倍になる？','直列（電流が同じ）で、電力が大きいのは？','抵抗が大きいほう','電力は抵抗に比例'],
+  ['rpar','何倍になる？','並列（電圧が同じ）で、電力が大きいのは？','抵抗が小さいほう','電流が多く流れるから'],
+].map(([id, tag, q, a, n]) => ({ id, tag, q, a, n }));
 
 // 画面と操作
 const KEY = 'denryu-drill-v1';
-let store = { solved: {}, chipSeen: false, theme: null };
+let store = { solved: {}, missed: {}, known: {}, chipSeen: false, theme: null, testBest: null };
 try { Object.assign(store, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
 
+UNITS.forEach((u, ui) => { u.gens = UNIT_GENS[u.id]; u.problems.forEach(p => { p.ui = ui; }); });
+
 const app = document.getElementById('app');
 let view = { name: 'home' };
-let ps = null; // 問題の状態
+let sess = null; // 解いている問題の並び { mode: unit|practice|review|test, list, i, ui, results }
+let ps = null;   // 1問の状態
+let cs = null;   // カードの状態
+const MODE_NAME = { review: 'まちがえた問題', test: 'テスト本番' };
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function rich(t) {
@@ -575,6 +909,8 @@ function toNum(str) {
 }
 const near = (x, a) => Math.abs(x - a) <= Math.max(1e-9, Math.abs(a) * 0.01);
 const unitDone = u => u.problems.filter(p => store.solved[p.id]).length;
+const missedList = () => UNITS.flatMap(u => u.problems).filter(p => store.missed[p.id]);
+const ansText = p => esc(fm(p.a)) + (p.kind === 'choice' || !p.u ? '' : ' ' + esc(p.u));
 
 function applyTheme() {
   const t = store.theme;
@@ -594,8 +930,15 @@ function header(back) {
 }
 
 function renderHome() {
+  const miss = missedList().length, known = CARDS.filter(c => store.known[c.id]).length;
   app.innerHTML = header() + `<main class="home">
     <h1>電流のテスト対策</h1>
+    <div class="modes">
+      <button class="mode" data-act="cards"><span class="mt">テスト前チェック</span><span class="md">覚えることをカードで確認</span><span class="ms">覚えた ${known} / ${CARDS.length}</span></button>
+      <button class="mode" data-act="test"><span class="mt">テスト本番モード</span><span class="md">全範囲から10問・ヒントなし・毎回ちがう数字</span><span class="ms">${store.testBest == null ? '' : `ベスト ${store.testBest} / 10`}</span></button>
+      <button class="mode" data-act="review"${miss ? '' : ' disabled'}><span class="mt">まちがえた問題</span><span class="md">${miss ? 'まちがえた問題だけ解き直す' : '単元でまちがえると、ここに集まります'}</span><span class="ms">${miss} 問</span></button>
+    </div>
+    <h2 class="sec">単元ごとに練習</h2>
     <ol class="units">${UNITS.map((u, i) => {
       const d = unitDone(u), n = u.problems.length;
       return `<li><button data-unit="${i}"><span class="num">${i + 1}</span><span class="uname">${u.name}</span><span class="prog ${d === n ? 'done' : ''}">${d === n ? '完了' : `${d} / ${n}`}</span></button></li>`;
@@ -612,21 +955,45 @@ function renderUnit(ui) {
     <p class="lead">${u.lead}</p>
     <section class="card"><h2>おぼえること</h2><ul>${u.remember.map(r => `<li>${esc(r)}</li>`).join('')}</ul></section>
     <details class="card"><summary>よくあるまちがい</summary><ul>${u.mistakes.map(r => `<li>${esc(r)}</li>`).join('')}</ul></details>
-    <div class="actions"><button class="primary" data-start="${next < 0 ? 0 : next}"${next < 0 ? ' data-reset="1"' : ''}>${next < 0 ? 'もう一度' : next === 0 ? 'はじめる' : 'つづきから'}</button></div>
+    <div class="actions"><button class="primary" data-start="${next < 0 ? 0 : next}"${next < 0 ? ' data-reset="1"' : ''}>${next < 0 ? 'もう一度' : next === 0 ? 'はじめる' : 'つづきから'}</button>
+    ${u.gens ? '<button class="secondary" data-act="practice">数字をかえて練習（5問）</button>' : ''}</div>
   </main>`;
 }
 
-function startProblem(ui, pi) {
-  ps = { ui, pi, shown: 0, asks: {}, wrong: 0, done: !!store.solved[UNITS[ui].problems[pi].id], msg: '', ok: false, note: {} };
-  if (ps.done) { ps.shown = UNITS[ui].problems[pi].steps.length; ps.ok = true; }
+function startSession(mode, list, ui, start = 0) {
+  sess = { mode, list, ui, i: start, results: [] };
+  openProblem();
+}
+function openProblem() {
+  const p = sess.list[sess.i];
+  const done = sess.mode === 'unit' && !!store.solved[p.id];
+  ps = { p, shown: 0, asks: {}, wrong: 0, msg: '', ok: done, over: done, note: {}, flowOn: false, revealed: false };
+  if (done) revealAll();
   view = { name: 'problem' };
   renderProblem();
   window.scrollTo(0, 0);
 }
+function revealAll() {
+  ps.shown = ps.p.steps.length;
+  ps.p.steps.forEach((s, i) => { if (s.ask) ps.asks[i] = { ok: true }; });
+}
+function startPractice(ui) {
+  const names = shuffle(UNITS[ui].gens);
+  startSession('practice', Array.from({ length: 5 }, (_, k) => makeGen(names[k % names.length])), ui);
+}
+function startTest() {
+  startSession('test', shuffle(Object.keys(GEN)).slice(0, 10).map(makeGen));
+}
+function startReview() {
+  const list = missedList();
+  if (list.length) startSession('review', list);
+}
 
 function renderProblem() {
-  const u = UNITS[ps.ui], p = u.problems[ps.pi], n = u.problems.length;
-  const steps = p.steps.slice(0, ps.shown);
+  const p = ps.p, n = sess.list.length, test = sess.mode === 'test';
+  const u = p.ui != null ? UNITS[p.ui] : null;
+  const help = !(test && !ps.over); // テスト本番は、答えるまでヒントなし
+  const steps = help ? p.steps.slice(0, ps.shown) : [];
   const given = p.given.map(([k, v, note]) => {
     const show = note && note !== '問題文より' && note !== '表示より' && note !== '';
     return `<div class="g"><span class="gk">${esc(k)}</span><span class="gv">${esc(v)}</span>${show ? `<span class="gn">${esc(note)}</span>` : ''}</div>`;
@@ -637,7 +1004,7 @@ function renderProblem() {
     if (s.ask) {
       const st = ps.asks[i];
       ask = st && st.ok
-        ? `<div class="ask done">${esc(s.ask.p)} <b>${s.ask.a} ${esc(s.ask.u)}</b></div>`
+        ? `<div class="ask done">${esc(s.ask.p)} <b>${esc(fm(s.ask.a))} ${esc(s.ask.u)}</b></div>`
         : `<div class="ask"><label>${esc(s.ask.p)}</label><span class="row"><input inputmode="decimal" data-ask="${i}" autocomplete="off"><span class="u">${esc(s.ask.u)}</span><button class="small" data-askcheck="${i}">OK</button><button class="small ghost" data-askshow="${i}">見る</button></span>${st && st.msg ? `<p class="fb bad">${esc(st.msg)}</p>` : ''}</div>`;
     }
     return `<li${i === ps.anim ? ' class="new"' : ''}><span class="sn">${i + 1}</span><div class="st"><p>${rich(s.t)}</p>${ask}${ps.note[i] ? `<p class="note">${esc(ps.note[i])}</p>` : ''}</div></li>`;
@@ -645,34 +1012,41 @@ function renderProblem() {
   const remaining = p.steps.length - ps.shown;
 
   let answer;
-  if (ps.ok) {
-    const last = ps.pi === n - 1;
-    answer = `<div class="result"><p class="fb good">正解　${esc(p.a)}${p.kind === 'choice' ? '' : ' ' + esc(p.u)}</p><p class="point">${esc(p.point)}</p></div>
-      <div class="actions"><button class="primary" data-act="${last ? 'unitdone' : 'next'}">${last ? '一覧にもどる' : '次の問題へ'}</button></div>`;
+  if (ps.over) {
+    const last = sess.i === n - 1;
+    const head = ps.ok
+      ? `<p class="fb good">正解　${ansText(p)}</p>`
+      : `<p class="fb bad big">正解は　${ansText(p)}</p>${ps.msg ? `<p class="fb bad">${esc(ps.msg)}</p>` : ''}`;
+    answer = `<div class="result">${head}<p class="point">${esc(p.point)}</p></div>
+      <div class="actions"><button class="primary" data-act="next">${!last ? '次の問題へ' : sess.mode === 'unit' ? '一覧にもどる' : '結果を見る'}</button></div>`;
   } else if (p.kind === 'choice') {
     answer = `<div class="choices">${p.choices.map(c => `<button class="choice" data-choice="${esc(c)}">${esc(c)}</button>`).join('')}</div>${ps.msg ? `<p class="fb bad">${esc(ps.msg)}</p>` : ''}`;
   } else {
     answer = `<div class="answer"><input id="ans" inputmode="decimal" autocomplete="off" placeholder="答え" aria-label="答え"><span class="u">${esc(p.u)}</span><button class="primary" data-act="check">答え合わせ</button></div>${ps.msg ? `<p class="fb bad">${esc(ps.msg)}</p>` : ''}`;
   }
 
-  const ctx = u.context ? `<p class="context">${esc(u.context)}</p>` : '';
-  app.innerHTML = header('unit') + `<main class="problem">
-    <div class="bar"><span>${esc(u.name)}</span><span>${ps.pi + 1} / ${n}</span></div>
-    <div class="track"><i style="width:${(ps.pi + (ps.ok ? 1 : 0)) / n * 100}%"></i></div>
-    ${ctx}${drawFig(p.fig || u.fig)}
+  const title = sess.mode === 'unit' ? u.name
+    : sess.mode === 'practice' ? `${UNITS[sess.ui].name}（数字をかえて）`
+    : `${MODE_NAME[sess.mode]}・${u ? u.name : p.topic}`;
+  const ctx = p.context || (u && u.context);
+  app.innerHTML = header(sess.mode === 'unit' || sess.mode === 'practice' ? 'unit' : 'home') + `<main class="problem">
+    <div class="bar"><span>${esc(title)}</span><span>${sess.i + 1} / ${n}</span></div>
+    <div class="track"><i style="width:${(sess.i + (ps.over ? 1 : 0)) / n * 100}%"></i></div>
+    ${ctx ? `<p class="context">${esc(ctx)}</p>` : ''}${drawFig(p.fig || (u && u.fig), { allowed: help, on: ps.flowOn, hl: ps.wrong > 0 })}
     <p class="q">${esc(p.q)}</p>
     <div class="given">${given}</div>
     ${steps.length ? `<ol class="steps">${stepHtml}</ol>${hasChip && !store.chipSeen ? '<p class="tip">点線の数字をタップすると、何の数字か出ます</p>' : ''}` : ''}
-    ${!ps.ok && remaining > 0 ? `<button class="hint" data-act="hint">ヒントを1つ見る<span>${ps.shown} / ${p.steps.length}</span></button>` : ''}
-    ${!ps.ok && remaining > 0 && ps.wrong >= 2 ? `<button class="hint quiet" data-act="all">解き方をぜんぶ見る</button>` : ''}
+    ${help && !ps.over && remaining > 0 ? `<button class="hint" data-act="hint">ヒントを1つ見る<span>${ps.shown} / ${p.steps.length}</span></button>` : ''}
+    ${help && !ps.over && remaining > 0 && ps.wrong >= 2 ? `<button class="hint quiet" data-act="all">解き方をぜんぶ見る</button>` : ''}
     ${answer}
   </main>`;
   ps.anim = -1;
   const a = document.getElementById('ans'); if (a && ps.focus) { a.focus(); ps.focus = false; }
+  runFlow();
 }
 
 function check(value) {
-  const p = UNITS[ps.ui].problems[ps.pi];
+  const p = ps.p;
   let ok, msg = '';
   if (p.kind === 'choice') {
     ok = value === p.a;
@@ -683,19 +1057,31 @@ function check(value) {
     ok = near(x, p.a);
     if (!ok) {
       const w = (p.wrongs || []).find(w => near(x, w[0]));
-      msg = w ? w[1] : (ps.shown < p.steps.length ? 'ちがいます。ヒントを1つ見てみよう。' : 'ちがいます。解き方をもう一度見なおそう。');
+      msg = w ? w[1] : sess.mode === 'test' ? '' : (ps.shown < p.steps.length ? 'ちがいます。ヒントを1つ見てみよう。' : 'ちがいます。解き方をもう一度見なおそう。');
     }
   }
-  if (ok) {
-    ps.ok = true; ps.msg = ''; ps.shown = p.steps.length;
-    p.steps.forEach((s, i) => { if (s.ask) ps.asks[i] = { ok: true }; });
-    store.solved[p.id] = true; save();
-  } else { ps.wrong++; ps.msg = msg; ps.focus = true; }
+  if (sess.mode === 'test') {
+    // 本番は1回きり。答えたら解き方をぜんぶ見せる。
+    ps.over = true; ps.ok = ok; ps.msg = msg; revealAll();
+    sess.results[sess.i] = ok;
+  } else if (ok) {
+    ps.ok = ps.over = true; ps.msg = ''; revealAll();
+    const first = ps.wrong === 0 && !ps.revealed;
+    sess.results[sess.i] = first;
+    if (p.id) {
+      store.solved[p.id] = true;
+      if (sess.mode === 'review' && first) delete store.missed[p.id];
+      save();
+    }
+  } else {
+    ps.wrong++; ps.msg = msg; ps.focus = true;
+    if (p.id) { store.missed[p.id] = true; save(); }
+  }
   renderProblem();
 }
 
 function checkAsk(i, reveal) {
-  const s = UNITS[ps.ui].problems[ps.pi].steps[i];
+  const s = ps.p.steps[i];
   if (reveal) { ps.asks[i] = { ok: true }; renderProblem(); return; }
   const el = document.querySelector(`[data-ask="${i}"]`), x = toNum(el.value);
   if (near(x, s.ask.a)) ps.asks[i] = { ok: true };
@@ -706,10 +1092,73 @@ function checkAsk(i, reveal) {
   renderProblem();
 }
 
+function nextProblem() {
+  if (sess.i < sess.list.length - 1) { sess.i++; openProblem(); return; }
+  if (sess.mode === 'unit') { view = { name: 'home' }; }
+  else {
+    if (sess.mode === 'test') {
+      const score = sess.results.filter(Boolean).length;
+      store.testBest = Math.max(store.testBest || 0, score); save();
+    }
+    view = { name: 'end' };
+  }
+  render(); window.scrollTo(0, 0);
+}
+
+function renderEnd() {
+  const n = sess.list.length, ok = sess.results.filter(Boolean).length, test = sess.mode === 'test';
+  const title = test ? 'テストの結果' : sess.mode === 'practice' ? '練習のおわり' : 'やり直しのおわり';
+  const comment = test
+    ? (ok === n ? 'かんぺき！' : ok >= 8 ? 'よくできました。×の問題の分野を見直そう。' : ok >= 5 ? 'あと少し。×の分野を単元ごとに練習しよう。' : '単元ごとの練習から始めよう。')
+    : '1回で正解した問題の数です。';
+  const left = missedList().length;
+  let buttons = '';
+  if (test) buttons = '<button class="primary" data-act="test">もう一度（新しい10問）</button>';
+  else if (sess.mode === 'practice') buttons = '<button class="primary" data-act="practice">もう一度（数字をかえて）</button><button class="secondary" data-go="unit">単元にもどる</button>';
+  else if (left) buttons = `<button class="primary" data-act="review">のこり ${left} 問をやり直す</button>`;
+  app.innerHTML = header('home') + `<main class="end">
+    <h1>${title}</h1>
+    <p class="score">${ok}<small> / ${n}</small></p>
+    <p class="lead">${comment}${test && store.testBest != null ? `（ベスト ${store.testBest} / 10）` : ''}${sess.mode === 'review' && !left ? 'まちがえた問題は、全部なくなりました。' : ''}</p>
+    <ul class="rlist">${sess.list.map((p, i) => {
+      const r = sess.results[i];
+      return `<li><span class="mark ${r ? 'ok' : 'ng'}">${r ? '○' : '×'}</span><span>${esc(p.ui != null ? UNITS[p.ui].name : p.topic)}</span></li>`;
+    }).join('')}</ul>
+    <div class="actions">${buttons}<button class="secondary" data-go="home">ホームへ</button></div>
+  </main>`;
+}
+
+function startCards(all) {
+  const ids = CARDS.filter(c => all || !store.known[c.id]).map(c => c.id);
+  cs = { deck: shuffle(ids), flipped: false, total: ids.length };
+  view = { name: 'cards' }; render(); window.scrollTo(0, 0);
+}
+function renderCards() {
+  if (!cs.deck.length) {
+    app.innerHTML = header('home') + `<main class="cards">
+      <h1>全部おぼえた！</h1>
+      <p class="lead">${cs.total}枚のカードを確認しました。テストの前にもう一度見ておこう。</p>
+      <div class="actions"><button class="primary" data-act="cardsall">もう一度、全部のカードで</button><button class="secondary" data-go="home">ホームへ</button></div>
+    </main>`;
+    return;
+  }
+  const c = CARDS.find(x => x.id === cs.deck[0]);
+  app.innerHTML = header('home') + `<main class="cards">
+    <div class="bar"><span>テスト前チェック</span><span>のこり ${cs.deck.length} 枚</span></div>
+    <div class="track"><i style="width:${(cs.total - cs.deck.length) / cs.total * 100}%"></i></div>
+    <button class="flash" data-act="flip" aria-label="${cs.flipped ? '表にもどす' : '答えを見る'}"><span class="ftag">${esc(c.tag)}</span><span class="fq">${esc(c.q)}</span>${cs.flipped
+      ? `<span class="fa">${esc(c.a)}</span>${c.n ? `<span class="fn">${esc(c.n)}</span>` : ''}`
+      : '<span class="fhint">タップして答えを見る</span>'}</button>
+    ${cs.flipped ? '<div class="judge"><button class="choice" data-act="later">まだ</button><button class="primary" data-act="known">覚えた</button></div>' : ''}
+  </main>`;
+}
+
 function render() {
   applyTheme();
   if (view.name === 'home') renderHome();
   else if (view.name === 'unit') renderUnit(view.ui);
+  else if (view.name === 'cards') renderCards();
+  else if (view.name === 'end') renderEnd();
   else renderProblem();
 }
 
@@ -717,15 +1166,23 @@ app.addEventListener('click', e => {
   const t = e.target.closest('button'); if (!t) return;
   const d = t.dataset;
   if (d.go === 'home') { view = { name: 'home' }; render(); window.scrollTo(0, 0); }
-  else if (d.go === 'unit') { view = { name: 'unit', ui: ps.ui }; render(); window.scrollTo(0, 0); }
+  else if (d.go === 'unit') { view = { name: 'unit', ui: sess.ui }; render(); window.scrollTo(0, 0); }
   else if (d.unit) { view = { name: 'unit', ui: +d.unit }; render(); window.scrollTo(0, 0); }
-  else if (d.start) { if (d.reset) { UNITS[view.ui].problems.forEach(p => delete store.solved[p.id]); save(); } startProblem(view.ui, +d.start); }
+  else if (d.start) { if (d.reset) { UNITS[view.ui].problems.forEach(p => delete store.solved[p.id]); save(); } startSession('unit', UNITS[view.ui].problems, view.ui, +d.start); }
   else if (d.act === 'theme') { store.theme = isDark() ? 'light' : 'dark'; save(); render(); }
+  else if (d.act === 'practice') startPractice(view.name === 'unit' ? view.ui : sess.ui);
+  else if (d.act === 'test') startTest();
+  else if (d.act === 'review') startReview();
+  else if (d.act === 'cards') startCards(CARDS.every(c => store.known[c.id]));
+  else if (d.act === 'cardsall') startCards(true);
+  else if (d.act === 'flip') { cs.flipped = !cs.flipped; renderCards(); }
+  else if (d.act === 'known') { store.known[cs.deck.shift()] = true; save(); cs.flipped = false; renderCards(); }
+  else if (d.act === 'later') { const id = cs.deck.shift(); delete store.known[id]; save(); cs.deck.push(id); cs.flipped = false; renderCards(); }
+  else if (d.act === 'flow') { ps.flowOn = !ps.flowOn; if (ps.flowOn) flowT0 = performance.now(); renderProblem(); }
   else if (d.act === 'hint') { ps.anim = ps.shown; ps.shown++; ps.msg = ''; renderProblem(); }
-  else if (d.act === 'all') { ps.shown = UNITS[ps.ui].problems[ps.pi].steps.length; renderProblem(); }
+  else if (d.act === 'all') { ps.revealed = true; revealAll(); if (ps.p.id) { store.missed[ps.p.id] = true; save(); } renderProblem(); }
   else if (d.act === 'check') check(document.getElementById('ans').value);
-  else if (d.act === 'next') startProblem(ps.ui, ps.pi + 1);
-  else if (d.act === 'unitdone') { view = { name: 'home' }; render(); window.scrollTo(0, 0); }
+  else if (d.act === 'next') nextProblem();
   else if (d.choice) check(d.choice);
   else if (d.askcheck) checkAsk(+d.askcheck, false);
   else if (d.askshow) checkAsk(+d.askshow, true);
