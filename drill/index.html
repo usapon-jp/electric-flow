@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#f8f7f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1f1d" media="(prefers-color-scheme: dark)">
+<title>電流ドリル</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Crect width='50' height='50' rx='14' fill='%235b6e62'/%3E%3Cpath d='M29 7 15 27h10l-4 16 15-23H25z' fill='%23fff6db'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#f8f7f3;--paper:#fdfcf8;--ink:#303d37;--muted:#848a80;--line:#e4e6dd;--soft:#f0efe6;
+  --green:#5a6e61;--green-ink:#fffef9;--warm:#a8895c;--good:#4f6e56;--bad:#9a6a4f;
+  --chip:#eef0e6;--wire:#56615a;--fig:#fcfbf6;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#1b1f1d;--paper:#222724;--ink:#d6dacf;--muted:#8f968b;--line:#323935;--soft:#262c29;
+  --green:#7f9584;--green-ink:#1b1f1d;--warm:#c4aa7f;--good:#9dbba3;--bad:#c79a80;
+  --chip:#2c332f;--wire:#a9b2a6;--fig:#202522;color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#1b1f1d;--paper:#222724;--ink:#d6dacf;--muted:#8f968b;--line:#323935;--soft:#262c29;
+  --green:#7f9584;--green-ink:#1b1f1d;--warm:#c4aa7f;--good:#9dbba3;--bad:#c79a80;
+  --chip:#2c332f;--wire:#a9b2a6;--fig:#202522;color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",Meiryo,sans-serif;font-size:17px;line-height:1.8;transition:background .3s,color .3s}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+#app{max-width:640px;margin:0 auto;padding:0 20px 64px}
+h1{font-size:24px;font-weight:600;letter-spacing:.04em;line-height:1.6;margin:8px 0 6px}
+h2{font-size:14px;font-weight:600;color:var(--muted);margin:0 0 8px;letter-spacing:.06em}
+p{margin:0}
+
+.top{display:flex;align-items:center;justify-content:space-between;height:64px}
+.logo{font-size:14px;letter-spacing:.2em;color:var(--muted)}
+.top button{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.top button:hover{background:var(--soft)}
+.top svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.top .back{margin-left:-10px}
+
+/* ホーム */
+.units{list-style:none;margin:20px 0 0;padding:0}
+.units li+li{border-top:1px solid var(--line)}
+.units button{width:100%;display:flex;align-items:center;gap:16px;padding:18px 4px;text-align:left;min-height:64px}
+.units button:hover{background:var(--soft)}
+.num{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--muted);flex-shrink:0}
+.uname{flex:1;font-size:17px}
+.prog{font-size:13px;color:var(--muted)}
+.prog.done{color:var(--good)}
+
+/* 単元 */
+.crumb{font-size:13px;color:var(--muted);margin-top:4px}
+.lead{color:var(--muted);margin-bottom:20px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:12px}
+.card ul{margin:0;padding-left:1.2em}
+.card li{margin:4px 0}
+details.card summary{cursor:pointer;font-size:14px;color:var(--muted);list-style:none}
+details.card summary::before{content:"＋ ";color:var(--muted)}
+details[open].card summary::before{content:"− "}
+details[open].card summary{margin-bottom:8px}
+.actions{margin-top:24px}
+.primary{display:block;width:100%;min-height:54px;border-radius:14px;background:var(--green);color:var(--green-ink);font-size:17px;font-weight:600;letter-spacing:.06em}
+.primary:hover{filter:brightness(1.05)}
+
+/* 問題 */
+.bar{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+.track{height:3px;background:var(--line);border-radius:3px;margin:8px 0 20px;overflow:hidden}
+.track i{display:block;height:100%;background:var(--green);transition:width .4s}
+.context{font-size:15px;color:var(--muted);line-height:1.8;margin-bottom:8px}
+.figs{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;background:var(--fig);border:1px solid var(--line);border-radius:14px;padding:10px;margin:8px 0 18px}
+.fig{width:100%;max-width:340px;height:auto}
+.q{font-size:18px;line-height:1.8;margin-bottom:14px}
+.given{display:flex;flex-direction:column;gap:2px;margin-bottom:20px;padding-left:12px;border-left:2px solid var(--line)}
+.g{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;font-size:15px}
+.gk{color:var(--muted);min-width:4.5em}
+.gv{font-weight:600}
+.gn{font-size:13px;color:var(--warm)}
+
+.steps{list-style:none;margin:0 0 8px;padding:0}
+.steps>li{display:flex;gap:12px;padding:14px 0;border-top:1px solid var(--line)}
+.steps>li.new{animation:in .35s ease}
+.steps>li:last-child{border-bottom:1px solid var(--line)}
+@keyframes in{from{opacity:0;transform:translateY(4px)}}
+.sn{flex-shrink:0;width:24px;height:24px;border-radius:50%;background:var(--soft);font-size:12px;color:var(--muted);display:flex;align-items:center;justify-content:center;margin-top:4px}
+.st{flex:1;min-width:0}
+.chip{font-weight:600;border-bottom:1.5px dotted var(--warm);padding:0 2px;line-height:1.4;border-radius:3px}
+.chip:hover{background:var(--chip)}
+.note{margin-top:6px;font-size:14px;color:var(--warm)}
+.tip{font-size:13px;color:var(--muted);margin:4px 0 8px}
+.ask{margin-top:10px;background:var(--soft);border-radius:10px;padding:10px 12px;font-size:15px}
+.ask label{display:block;margin-bottom:6px}
+.ask.done{color:var(--good)}
+.row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ask input{width:110px;height:40px;border:1px solid var(--line);border-radius:8px;background:var(--paper);padding:0 10px;font-size:17px}
+.small{height:40px;padding:0 14px;border-radius:8px;background:var(--green);color:var(--green-ink);font-size:14px}
+.small.ghost{background:none;color:var(--muted)}
+.u{color:var(--muted);font-size:15px;min-width:1em}
+
+.hint{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:48px;padding:0 4px;color:var(--warm);font-size:15px}
+.hint span{font-size:13px;color:var(--muted)}
+.hint.quiet{color:var(--muted);min-height:40px}
+.answer{display:flex;align-items:center;gap:10px;margin-top:16px}
+.answer input{flex:1;min-width:0;height:54px;border:1px solid var(--line);border-radius:14px;background:var(--paper);padding:0 16px;font-size:20px}
+.answer .primary{width:auto;flex-shrink:0;padding:0 20px}
+.choices{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+.choice{min-height:52px;border:1px solid var(--line);border-radius:14px;background:var(--paper);text-align:left;padding:0 18px}
+.choice:hover{border-color:var(--green)}
+.fb{margin-top:10px;font-size:15px}
+.fb.bad{color:var(--bad)}
+.result{margin-top:20px}
+.fb.good{font-size:20px;font-weight:600;color:var(--good);margin:0}
+.point{margin-top:6px;color:var(--muted);font-size:15px}
+
+/* 図 */
+.w,.mw{fill:none;stroke:var(--wire);stroke-width:2;stroke-linejoin:round}
+.mw{stroke-width:1.4;stroke-dasharray:4 3}
+.res{fill:var(--fig);stroke:var(--wire);stroke-width:2}
+.bat{stroke:var(--wire);stroke-width:2}
+.bat.thick{stroke-width:5}
+.dot{fill:var(--wire)}
+.pdot{fill:var(--warm)}
+.meter{fill:var(--fig);stroke:var(--wire);stroke-width:1.6}
+.ml{font-size:14px;text-anchor:middle;fill:var(--ink);font-family:sans-serif}
+.lbl{font-size:14px;text-anchor:middle;fill:var(--ink)}
+.pm{font-size:12px;text-anchor:middle;fill:var(--muted)}
+.pt{font-size:16px;font-style:italic;fill:var(--warm);font-family:Georgia,serif;text-anchor:middle}
+.grid{stroke:var(--line);stroke-width:1}
+.axis{fill:none;stroke:var(--wire);stroke-width:1.5}
+.gl{stroke:var(--green);stroke-width:2.2}
+.tick{font-size:11px;fill:var(--muted);text-anchor:middle;font-family:sans-serif}
+.axl{font-size:12px;fill:var(--muted);text-anchor:middle}
+
+@media (max-width:420px){
+  #app{padding:0 16px 56px}
+  h1{font-size:22px}
+  .answer .primary{padding:0 14px;font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// 問題データ。{{表示|説明}} は「タップすると何の数字か出る」チップになる。
+const FIG = {
+  par2: (r1, r2, v) => ({type:'circuit', items:[{type:'par', top:r1, bottom:r2}], battery:v}),
+  mixB: {type:'circuit', items:[{type:'par', top:'R₁ 12Ω', bottom:'R₂ 6Ω', volt:'P'}, {type:'r', label:'R₃', volt:'Q'}], battery:'15V', ammeter:true},
+  mixC: {type:'circuit', items:[{type:'r', label:'A 2Ω'}, {type:'par', top:'B 6Ω', bottom:'C 3Ω'}], battery:'12V'},
+  graph: {type:'graph'},
+  abc: {type:'circuit', items:[{type:'par', top:'R₁', bottom:'R₂', points:true}], battery:'電源'},
+};
+
+const UNITS = [
+{
+  id:'ohm', name:'オームの法則と単位',
+  lead:'式の数字が「何の数字か」を言えるようにする。',
+  remember:['電圧 ＝ 電流 × 抵抗', '電流 ＝ 電圧 ÷ 抵抗', '抵抗 ＝ 電圧 ÷ 電流', '1A ＝ 1000mA（mAは計算の前にAへ）'],
+  mistakes:['mAのまま計算してしまう', '答えを「何mA」で聞かれているのにAで答える', '数字だけ書いて、どの部品の値かわからなくなる → 数字に単位をつけて書く'],
+  problems:[
+  {id:'ohm1', q:'ある抵抗器に 9V の電圧を加えると、45mA の電流が流れた。この抵抗器の抵抗は何Ωか。',
+   given:[['電圧','9V','問題文より'],['電流','45mA','問題文より。計算の前にAに直す']],
+   steps:[
+    {t:'mAをAに直す。1A ＝ 1000mA なので、1000でわる。', ask:{p:'45mA は何A？', a:0.045, u:'A', wrongs:[[45,'mAのままです。1000でわります。'],[0.45,'1000でわると、小数点は左へ3つ動きます。'],[4.5,'1000でわると、小数点は左へ3つ動きます。']]}},
+    {t:'抵抗 ＝ 電圧 ÷ 電流 なので、{{9|抵抗器にかかる電圧 9V（問題文）}} ÷ {{0.045|抵抗器に流れる電流 0.045A（45mAを直した）}} ＝ 200。'},
+   ],
+   a:200, u:'Ω', wrongs:[[0.2,'9÷45 になっています。45mAを0.045Aに直してから計算しよう。'],[405,'抵抗は 電圧÷電流 です。かけ算ではありません。']],
+   point:'計算の前に、mAはAに直す。'},
+  {id:'ohm2', q:'前の問題の抵抗器に 3V の電圧を加えると、何mA の電流が流れるか。',
+   given:[['抵抗','200Ω','前の問題の答え。同じ抵抗器なので変わらない'],['電圧','3V','問題文より']],
+   steps:[
+    {t:'電流 ＝ 電圧 ÷ 抵抗 なので、{{3|抵抗器に加えた電圧 3V}} ÷ {{200|前の問題で求めた抵抗 200Ω}}。', ask:{p:'何A？', a:0.015, u:'A'}},
+    {t:'問題は「何mA」と聞いているので、1000をかけてmAに直す。0.015A ＝ 15mA。'},
+    {t:'別の考え方：同じ抵抗器で、電圧が 9V → 3V と3分の1になったので、電流も 45mA ÷ 3 ＝ 15mA。'},
+   ],
+   a:15, u:'mA', wrongs:[[0.015,'それはAの値です。問題は「何mA」なので1000をかけます。'],[600,'電流は 電圧÷抵抗 です。']],
+   point:'聞かれている単位で答える。'},
+  {id:'ohm3', q:'図のように、10Ω の抵抗 R₁ と 30Ω の抵抗 R₂ を並列につなぎ、6V の電源につないだ。電源から流れ出る電流は何Aか。',
+   fig:FIG.par2('R₁ 10Ω','R₂ 30Ω','6V'),
+   given:[['R₁','10Ω','問題文より'],['R₂','30Ω','問題文より'],['電源','6V','問題文より']],
+   steps:[
+    {t:'並列では、どの枝にも電源と同じ電圧がかかる。R₁にもR₂にも 6V。'},
+    {t:'R₁の電流 ＝ {{6|R₁にかかる電圧 6V}} ÷ {{10|R₁の抵抗 10Ω}}。', ask:{p:'R₁の電流は何A？', a:0.6, u:'A'}},
+    {t:'R₂の電流 ＝ {{6|R₂にかかる電圧 6V（並列なので同じ）}} ÷ {{30|R₂の抵抗 30Ω}}。', ask:{p:'R₂の電流は何A？', a:0.2, u:'A'}},
+    {t:'2つの枝の電流は、電源にもどる前に合流する。{{0.6|R₁の電流}} ＋ {{0.2|R₂の電流}} ＝ 0.8A。'},
+   ],
+   a:0.8, u:'A', wrongs:[[0.15,'6÷(10＋30) は直列の考え方です。並列では、それぞれに6Vがかかります。'],[0.6,'それはR₁だけの電流です。R₂の分もたします。'],[0.2,'それはR₂だけの電流です。R₁の分もたします。']],
+   point:'並列は「電圧は同じ、電流は分け合う」。'},
+  ]
+},
+{
+  id:'par', name:'並列の合成抵抗',
+  lead:'並列部分を「1つの抵抗」にまとめる。',
+  remember:['1/R ＝ 1/R₁ ＋ 1/R₂（最後にひっくり返す）', '2つだけなら：(かけ算) ÷ (たし算)', '並列の合成抵抗は、いちばん小さい抵抗より必ず小さい', '直列の合成抵抗は、たし算するだけ'],
+  mistakes:['1/R を出したところで止めて、ひっくり返し忘れる', '並列なのにたし算してしまう', '答えがいちばん小さい抵抗より大きくなっても気づかない'],
+  problems:[
+  {id:'par1', q:'6Ω の抵抗 R₁ と 12Ω の抵抗 R₂ を並列につないだ。全体の抵抗（合成抵抗）は何Ωか。公式を使って求めよう。',
+   fig:FIG.par2('R₁ 6Ω','R₂ 12Ω'),
+   given:[['R₁','6Ω','問題文より'],['R₂','12Ω','問題文より']],
+   steps:[
+    {t:'公式に入れる。1/R ＝ 1/{{6|R₁の抵抗 6Ω}} ＋ 1/{{12|R₂の抵抗 12Ω}}'},
+    {t:'通分する。1/6 ＝ 2/12 なので、2/12 ＋ 1/12 ＝ 3/12 ＝ 1/4'},
+    {t:'1/R が 1/4 なので、R はひっくり返して 4。ここを忘れやすい。'},
+   ],
+   a:4, u:'Ω', wrongs:[[0.25,'それは 1/R の値です。最後にひっくり返します。'],[18,'たし算は直列の合成抵抗です。並列は公式を使います。'],[3,'3/12 を約分すると 1/4。そこからひっくり返します。']],
+   point:'1/R が出たら、最後にひっくり返す。'},
+  {id:'par2', q:'10Ω の抵抗と 15Ω の抵抗を並列につないだ。合成抵抗は何Ωか。「かけ算÷たし算」の裏ワザで求めよう。',
+   fig:FIG.par2('10Ω','15Ω'),
+   given:[['1つ目','10Ω','問題文より'],['2つ目','15Ω','問題文より']],
+   steps:[
+    {t:'かけ算：{{10|1つ目の抵抗}} × {{15|2つ目の抵抗}}', ask:{p:'かけ算の答えは？', a:150, u:''}},
+    {t:'たし算：10 ＋ 15', ask:{p:'たし算の答えは？', a:25, u:''}},
+    {t:'わる：{{150|かけ算の答え}} ÷ {{25|たし算の答え}} ＝ 6'},
+    {t:'確かめ：いちばん小さい 10Ω より小さいので、おかしくない。'},
+   ],
+   a:6, u:'Ω', wrongs:[[25,'たし算は直列の合成抵抗です。'],[150,'かけ算のあと、たし算の答えでわります。']],
+   point:'裏ワザは抵抗が2つのときだけ。'},
+  {id:'par3', q:'20Ω の抵抗を2つ、並列につないだ。合成抵抗は何Ωか。',
+   fig:FIG.par2('20Ω','20Ω'),
+   given:[['抵抗','20Ω が2つ','問題文より']],
+   steps:[
+    {t:'裏ワザ：(20 × 20) ÷ (20 ＋ 20) ＝ 400 ÷ 40 ＝ 10'},
+    {t:'同じ抵抗を2つ並列にすると、ちょうど半分になる。道が2本に増えて、流れやすくなるから。'},
+   ],
+   a:10, u:'Ω', wrongs:[[40,'40Ωは直列（たし算）の場合です。'],[0.1,'それは 1/R の値です。ひっくり返します。']],
+   point:'同じ抵抗2つの並列 → 半分。'},
+  {id:'par4', kind:'choice', q:'8Ω と 24Ω を並列につないだときの合成抵抗として、ありえるのはどれ？ 計算しないで考えてみよう。',
+   given:[['1つ目','8Ω','問題文より'],['2つ目','24Ω','問題文より']],
+   steps:[
+    {t:'並列の合成抵抗は、いちばん小さい抵抗より必ず小さくなる。'},
+    {t:'いちばん小さいのは 8Ω。8Ωより小さいものを選ぶ。'},
+    {t:'確かめ：(8 × 24) ÷ (8 ＋ 24) ＝ 192 ÷ 32 ＝ 6Ω'},
+   ],
+   choices:['6Ω','16Ω','32Ω'], a:'6Ω',
+   wrongs:[['16Ω','16Ωは 8Ω より大きいので、並列ではありえません。'],['32Ω','32Ωは直列（たし算）の答えです。']],
+   point:'答えの見直しに使える：並列の合成抵抗 ＜ いちばん小さい抵抗。'},
+  ]
+},
+{
+  id:'mix', name:'並列と直列がまざった回路',
+  lead:'並列部分をまとめてから、直列として考える。',
+  remember:['並列部分 → 1つの抵抗にまとめる', '直列：電流はどこも同じ、電圧は分け合う（たすと電源の電圧）', '前の問題の答えを、次の問題で使う'],
+  mistakes:['並列部分の抵抗と、R₁だけの抵抗をまちがえる', '電源の電圧を引き算するのを忘れる', '前の問題で出した数字がどこから来たのか、わからなくなる'],
+  context:'図のように、抵抗 R₁（12Ω）と R₂（6Ω）を並列につなぎ、それに抵抗 R₃ を直列につないで 15V の電源につないだ。電流計は 1.5A を示した。電圧計Pは並列部分、電圧計QはR₃の電圧をはかっている。',
+  fig:FIG.mixB,
+  problems:[
+  {id:'mix1', q:'並列部分（R₁とR₂）の合成抵抗は何Ωか。',
+   given:[['R₁','12Ω','問題文より'],['R₂','6Ω','問題文より']],
+   steps:[
+    {t:'裏ワザ：({{12|R₁の抵抗}} × {{6|R₂の抵抗}}) ÷ (12 ＋ 6) ＝ 72 ÷ 18 ＝ 4'},
+    {t:'確かめ：いちばん小さい 6Ω より小さい。'},
+   ],
+   a:4, u:'Ω', wrongs:[[18,'たし算は直列です。R₁とR₂は並列です。'],[0.25,'1/R の値です。ひっくり返します。']],
+   point:'並列部分は「4Ωの抵抗が1個ある」と考えてよい。'},
+  {id:'mix2', q:'電圧計Pは何Vを示すか。',
+   given:[['並列部分の抵抗','4Ω','前の問題の答え'],['電流','1.5A','電流計の値']],
+   steps:[
+    {t:'並列部分と R₃ は直列。直列では電流はどこも同じなので、並列部分全体にも 1.5A が入る。'},
+    {t:'電圧 ＝ 電流 × 抵抗。{{1.5|並列部分に入る電流 1.5A（電流計の値）}} × {{4|並列部分の合成抵抗 4Ω（前の問題）}} ＝ 6'},
+    {t:'別の考え方：並列では電圧が同じ。R₂はR₁の半分の抵抗なので、電流は R₁：R₂ ＝ 1：2 に分かれる。R₁は 0.5A、R₂は 1A。R₁の電圧 ＝ 0.5 × 12 ＝ 6V。'},
+   ],
+   a:6, u:'V', wrongs:[[18,'1.5×12 はR₁の抵抗を使っています。並列部分全体の抵抗 4Ω を使います。'],[9,'それはR₂の抵抗を使った値か、Qの値です。並列部分全体の抵抗 4Ω を使います。'],[15,'15Vは電源の電圧です。並列部分にかかるのはその一部です。']],
+   point:'まとめた抵抗 × 流れこむ電流 ＝ その部分の電圧。'},
+  {id:'mix3', q:'電圧計Qは何Vを示すか。',
+   given:[['電源','15V','問題文より'],['Pの値','6V','前の問題の答え']],
+   steps:[
+    {t:'並列部分と R₃ は直列。直列では、電圧をたすと電源の電圧になる。'},
+    {t:'{{6|並列部分の電圧（P）}} ＋ ？ ＝ {{15|電源の電圧}}'},
+    {t:'？ ＝ 15 − 6 ＝ 9'},
+   ],
+   a:9, u:'V', wrongs:[[6,'それはPの値です。QはR₃の電圧です。'],[21,'たすのではなく、電源の電圧から引きます。']],
+   point:'直列は、電源の電圧を分け合う。'},
+  {id:'mix4', q:'抵抗 R₃ は何Ωか。',
+   given:[['R₃の電圧','9V','前の問題の答え（Q）'],['R₃の電流','1.5A','直列なので電流計と同じ']],
+   steps:[
+    {t:'抵抗 ＝ 電圧 ÷ 電流'},
+    {t:'{{9|R₃にかかる電圧（Qの値）}} ÷ {{1.5|R₃に流れる電流。直列なので電流計と同じ 1.5A}} ＝ 6'},
+   ],
+   a:6, u:'Ω', wrongs:[[13.5,'抵抗は 電圧÷電流 です。かけ算ではありません。'],[10,'10Ωは回路全体の抵抗です。R₃だけの電圧9Vを使います。']],
+   point:'部品1つの抵抗は、その部品の電圧と電流で出す。'},
+  {id:'mix5', q:'回路全体の抵抗は何Ωか。',
+   given:[['電源','15V','問題文より'],['電流','1.5A','電流計の値']],
+   steps:[
+    {t:'全体の抵抗 ＝ 全体の電圧 ÷ 全体の電流 ＝ {{15|電源の電圧}} ÷ {{1.5|電流計の値}} ＝ 10'},
+    {t:'確かめ：並列部分 4Ω と R₃ 6Ω の直列なので、4 ＋ 6 ＝ 10Ω。同じになった。'},
+   ],
+   a:10, u:'Ω', wrongs:[[24,'R₁とR₂は並列なので、そのままたしません。並列部分は4Ωです。'],[22.5,'抵抗は 電圧÷電流 です。']],
+   point:'2つのやり方で同じ答えになれば安心。'},
+  ]
+},
+{
+  id:'power', name:'電力・電力量・熱量',
+  lead:'足りないものを先に出してから、電力へ。',
+  remember:['電力(W) ＝ 電圧(V) × 電流(A)', '電力量(kWh) ＝ 電力(kW) × 時間(時間)', '熱量(J) ＝ 電力(W) × 時間(秒)', '「100V−500W」＝ 100Vで使うと500W'],
+  mistakes:['2時間30分を 2.3時間 にしてしまう（正しくは 2.5時間）', 'Wのまま計算して kWh にしない', '熱量で、分を秒に直し忘れる', '「100V−○W」の100Vを、いらないところで使ってしまう'],
+  problems:[
+  {id:'pow1', q:'20Ω の電熱線に 3A の電流が流れている。電熱線の電力は何Wか。',
+   given:[['抵抗','20Ω','問題文より'],['電流','3A','問題文より'],['電圧','書いていない','先に求める']],
+   steps:[
+    {t:'電力 ＝ 電圧 × 電流。でも電圧が書いていないので、先に電圧を出す。'},
+    {t:'電圧 ＝ 電流 × 抵抗 ＝ {{3|電熱線の電流}} × {{20|電熱線の抵抗}}', ask:{p:'電圧は何V？', a:60, u:'V'}},
+    {t:'電力 ＝ {{60|いま出した電圧}} × {{3|電熱線の電流}} ＝ 180'},
+   ],
+   a:180, u:'W', wrongs:[[60,'それは電圧です。電力は 電圧×電流 です。']],
+   point:'電圧がなければ、オームの法則で先に出す。'},
+  {id:'pow2', q:'「100V−500W」と表示された電熱線の抵抗は何Ωか。',
+   given:[['電圧','100V','表示より'],['電力','500W','表示より（100Vで使ったとき）']],
+   steps:[
+    {t:'「100V−500W」は「100Vで使うと 500W になる」という意味。'},
+    {t:'電流 ＝ 電力 ÷ 電圧 ＝ {{500|表示の電力}} ÷ {{100|表示の電圧}}', ask:{p:'電流は何A？', a:5, u:'A'}},
+    {t:'抵抗 ＝ 電圧 ÷ 電流 ＝ {{100|表示の電圧}} ÷ {{5|いま出した電流}} ＝ 20'},
+   ],
+   a:20, u:'Ω', wrongs:[[5,'それは電流です。次に 電圧÷電流 で抵抗を出します。'],[0.2,'電流 ＝ 電力÷電圧 です。']],
+   point:'電圧と電力 → 電流 → 抵抗 の順。'},
+  {id:'pow3', q:'「100V−25W」と表示された電球の抵抗は何Ωか。今度は自分で。',
+   given:[['電圧','100V','表示より'],['電力','25W','表示より']],
+   steps:[
+    {t:'前の問題と同じ形。電流 ＝ 電力 ÷ 電圧。', ask:{p:'電流は何A？', a:0.25, u:'A'}},
+    {t:'抵抗 ＝ {{100|表示の電圧}} ÷ {{0.25|いま出した電流}} ＝ 400'},
+   ],
+   a:400, u:'Ω', wrongs:[[4,'100 ÷ 0.25 を計算しなおしてみよう。0.25 は 1/4 なので、4倍になります。'],[0.25,'それは電流です。']],
+   point:'同じ100Vなら、電力が小さい器具ほど抵抗が大きい（500Wは20Ω、25Wは400Ω）。'},
+  {id:'pow4', kind:'choice', q:'「100V−600W」のドライヤーを 100V の電源で 1時間30分 使った。電力量を求めるのに使う数字はどれ？',
+   given:[['表示','100V−600W',''],['時間','1時間30分','']],
+   steps:[
+    {t:'電力量 ＝ 電力 × 時間。'},
+    {t:'100Vの電源で使っているので、表示どおり 600W になる。100Vは「表示どおりの条件で使っている」ことを確認するための数字。'},
+   ],
+   choices:['600W と 1時間30分','100V と 600W','100V と 1時間30分'], a:'600W と 1時間30分',
+   wrongs:[['100V と 600W','時間を使わないと電力量は出せません。'],['100V と 1時間30分','電力量は 電力×時間 です。']],
+   point:'同じ表示でも、聞かれていることで使う数字が変わる。'},
+  {id:'pow5', q:'前の問題のドライヤーの電力量は何kWhか。',
+   given:[['電力','600W','表示より'],['時間','1時間30分','問題文より']],
+   steps:[
+    {t:'答えの単位が kWh なので、電力は kW、時間は「時間」にそろえる。'},
+    {t:'1kW ＝ 1000W。600W を kW に直す。', ask:{p:'600W は何kW？', a:0.6, u:'kW', wrongs:[[6,'1000でわると、小数点は左へ3つ動きます。']]}},
+    {t:'30分は1時間の半分。1時間30分 を「時間」に直す。', ask:{p:'何時間？', a:1.5, u:'時間', wrongs:[[1.3,'30分は0.3時間ではありません。1時間の半分なので0.5時間です。']]}},
+    {t:'{{0.6|電力 0.6kW}} × {{1.5|時間 1.5時間}} ＝ 0.9'},
+   ],
+   a:0.9, u:'kWh', wrongs:[[900,'Whになっています。1000でわってkWhに直します。'],[0.78,'1時間30分は1.3時間ではなく1.5時間です。'],[780,'1時間30分は1.5時間。そしてkWに直してから計算します。']],
+   point:'kWhのときは、kWと「時間」にそろえる。'},
+  {id:'pow6', q:'500W のヒーターに 2分間 電流を流した。発生する熱量は何Jか。',
+   given:[['電力','500W','問題文より'],['時間','2分','秒に直す']],
+   steps:[
+    {t:'熱量(J) ＝ 電力(W) × 時間(秒)。1Wを1秒使うと1J。'},
+    {t:'2分を秒に直す。', ask:{p:'2分は何秒？', a:120, u:'秒'}},
+    {t:'{{500|ヒーターの電力}} × {{120|時間（秒）}} ＝ 60000'},
+   ],
+   a:60000, u:'J', wrongs:[[1000,'2分のまま計算しています。秒に直します。'],[30000,'2分は120秒です。']],
+   point:'Jのときは秒。kWhのときは時間。'},
+  ]
+},
+{
+  id:'mixp', name:'まざった回路の電力',
+  lead:'「全体の電流 → 各部分の電圧 → 電力」の順。',
+  remember:['並列部分をまとめる → 全体の抵抗 → 全体の電流', '直列部分の電圧 ＝ 電流 × 抵抗', '並列部分の電圧 ＝ 電源 − 直列部分の電圧'],
+  mistakes:['「6÷6」のように同じ数字が出ると、どれが電圧でどれが抵抗かわからなくなる → 単位をつけて書く', '並列の枝ごとの電流を出し忘れる'],
+  context:'図のように、抵抗 A（2Ω）に、抵抗 B（6Ω）と抵抗 C（3Ω）の並列部分を直列につなぎ、12V の電源につないだ。',
+  fig:FIG.mixC,
+  problems:[
+  {id:'mp1', q:'抵抗Aに流れる電流は何Aか。',
+   given:[['A','2Ω',''],['B','6Ω',''],['C','3Ω',''],['電源','12V','']],
+   steps:[
+    {t:'BとCの並列部分をまとめる。({{6|Bの抵抗}} × {{3|Cの抵抗}}) ÷ (6 ＋ 3) ＝ 18 ÷ 9', ask:{p:'並列部分は何Ω？', a:2, u:'Ω'}},
+    {t:'全体は A と並列部分の直列なので、たし算。{{2|Aの抵抗}} ＋ {{2|並列部分の合成抵抗}} ＝ 4Ω'},
+    {t:'全体の電流 ＝ {{12|電源の電圧}} ÷ {{4|全体の抵抗}} ＝ 3。Aは直列部分なので、全体の電流がそのまま流れる。'},
+   ],
+   a:3, u:'A', wrongs:[[6,'12÷2 はAの抵抗だけを使っています。全体の抵抗 4Ω でわります。']],
+   point:'直列部分には、全体の電流がそのまま流れる。'},
+  {id:'mp2', q:'抵抗Aの消費電力は何Wか。',
+   given:[['Aの電流','3A','前の問題の答え'],['Aの抵抗','2Ω','問題文より']],
+   steps:[
+    {t:'Aの電圧 ＝ {{3|Aの電流（前の問題）}} × {{2|Aの抵抗}}', ask:{p:'Aの電圧は何V？', a:6, u:'V'}},
+    {t:'電力 ＝ {{6|Aの電圧}} × {{3|Aの電流}} ＝ 18'},
+   ],
+   a:18, u:'W', wrongs:[[6,'それはAの電圧です。電力は 電圧×電流。'],[36,'Aにかかる電圧は12Vではなく6Vです。']],
+   point:'電力を出すには、その部品の電圧と電流の両方が必要。'},
+  {id:'mp3', q:'抵抗Bの消費電力は何Wか。',
+   given:[['電源','12V',''],['Aの電圧','6V','前の問題で出した'],['Bの抵抗','6Ω','']],
+   steps:[
+    {t:'並列部分の電圧 ＝ {{12|電源の電圧}} − {{6|Aの電圧}} ＝ 6V。BにもCにも 6V。'},
+    {t:'Bの電流 ＝ {{6|Bにかかる電圧 6V}} ÷ {{6|Bの抵抗 6Ω}} ＝ 1A。同じ6でも、1つ目は電圧、2つ目は抵抗。'},
+    {t:'電力 ＝ {{6|Bの電圧 6V}} × {{1|Bの電流 1A}} ＝ 6'},
+   ],
+   a:6, u:'W', wrongs:[[1,'それはBの電流です。電力は 電圧×電流。'],[24,'Bにかかるのは12Vではなく、並列部分の6Vです。']],
+   point:'同じ数字が出たら、V・Ω・Aをつけて書くとまちがえない。'},
+  {id:'mp4', q:'抵抗Cの消費電力は何Wか。',
+   given:[['並列部分の電圧','6V','前の問題で出した'],['Cの抵抗','3Ω','']],
+   steps:[
+    {t:'Cの電流 ＝ {{6|Cにかかる電圧（並列なのでBと同じ6V）}} ÷ {{3|Cの抵抗}}', ask:{p:'Cの電流は何A？', a:2, u:'A'}},
+    {t:'電力 ＝ {{6|Cの電圧}} × {{2|Cの電流}} ＝ 12'},
+    {t:'確かめ：Bの1A ＋ Cの2A ＝ 3A。Aの電流と同じになった。'},
+   ],
+   a:12, u:'W', wrongs:[[2,'それはCの電流です。'],[48,'Cにかかるのは12Vではなく6Vです。']],
+   point:'並列では、抵抗が小さいほうが電流も電力も大きい。'},
+  ]
+},
+{
+  id:'ratio', name:'何倍になる？',
+  lead:'まず「何が同じか」を見る。',
+  remember:['抵抗が同じ：電圧（電流）が□倍 → 電力は □×□倍', '電流が同じ（直列）：抵抗が□倍 → 電力は □倍', '電圧が同じ（並列）：抵抗が小さいほうが電力は大きい', '迷ったら、数字を仮に決めて確かめる'],
+  mistakes:['電圧が2倍なら電力も2倍、と答えてしまう（抵抗が同じなら4倍）', '「電流が同じ」なのに2乗してしまう'],
+  problems:[
+  {id:'rt1', q:'同じ電熱線に加える電圧を 3V から 9V にした。消費電力は何倍になるか。',
+   given:[['電熱線','同じ','抵抗は変わらない'],['電圧','3V → 9V','']],
+   steps:[
+    {t:'「同じ電熱線」なので抵抗は変わらない。'},
+    {t:'電圧は 9 ÷ 3 ＝ 3倍。抵抗が同じなので、電流も3倍になる。'},
+    {t:'電力 ＝ 電圧 × 電流 ＝ 3倍 × 3倍 ＝ 9倍'},
+    {t:'数字で確かめ：抵抗を仮に 3Ω とする。3Vのとき 1A → 3W。9Vのとき 3A → 27W。27 ÷ 3 ＝ 9倍。'},
+   ],
+   a:9, u:'倍', wrongs:[[3,'電圧が3倍になると、電流も3倍になります。電力は 電圧×電流。']],
+   point:'抵抗が同じなら「□倍 → □×□倍」。'},
+  {id:'rt2', q:'同じ電熱線に流れる電流を2倍にした。消費電力は何倍になるか。',
+   given:[['電熱線','同じ','抵抗は変わらない'],['電流','2倍','']],
+   steps:[
+    {t:'抵抗が同じなので、電流が2倍なら電圧も2倍。'},
+    {t:'電力 ＝ 2倍 × 2倍 ＝ 4倍'},
+   ],
+   a:4, u:'倍', wrongs:[[2,'電流が2倍になると、電圧も2倍になります。']],
+   point:'電圧でも電流でも、同じ考え方。'},
+  {id:'rt3', q:'直列につないだ 10Ω と 30Ω の電熱線がある（流れる電流は等しい）。30Ω の電熱線の消費電力は、10Ω の何倍か。',
+   given:[['電流','等しい','直列なので同じ'],['抵抗','10Ω と 30Ω','']],
+   steps:[
+    {t:'今回は「電流が同じ」。抵抗は 30 ÷ 10 ＝ 3倍。'},
+    {t:'電圧 ＝ 電流 × 抵抗。電流が同じで抵抗が3倍なので、電圧は3倍。'},
+    {t:'電力 ＝ 電圧 × 電流 ＝ 3倍 × 1倍（電流は同じ）＝ 3倍'},
+    {t:'数字で確かめ：電流を仮に 1A。10Ω → 10V → 10W。30Ω → 30V → 30W。30 ÷ 10 ＝ 3倍。'},
+   ],
+   a:3, u:'倍', wrongs:[[9,'電流は同じなので、2乗しません。電流は1倍のままです。'],[0.33,'逆です。抵抗が大きいほうが電圧が大きくなります。']],
+   point:'電流が同じなら、電力は抵抗に比例。'},
+  {id:'rt4', q:'並列につないだ 10Ω と 20Ω の電熱線がある（かかる電圧は等しい）。10Ω の電熱線の消費電力は、20Ω の何倍か。',
+   given:[['電圧','等しい','並列なので同じ'],['抵抗','10Ω と 20Ω','']],
+   steps:[
+    {t:'今回は「電圧が同じ」。抵抗が小さいほうが電流は多く流れる。'},
+    {t:'数字で確かめ：電圧を仮に 20V。10Ω → 2A → 40W。20Ω → 1A → 20W。'},
+    {t:'40 ÷ 20 ＝ 2倍'},
+   ],
+   a:2, u:'倍', wrongs:[[0.5,'逆です。電圧が同じなら、抵抗が小さい10Ωのほうが電流が多く、電力も大きくなります。'],[4,'電圧は同じなので、2乗しません。']],
+   point:'何が同じかで、答えが変わる。'},
+  ]
+},
+{
+  id:'graph', name:'グラフを読む',
+  lead:'読む前に「いま知りたいのはR₁？R₂？」を決める。',
+  remember:['aのグラフ ＝ R₁（a点）の電流', 'bのグラフ ＝ R₂（b点）の電流', 'c点 ＝ 合流したあと ＝ a ＋ b', '並列なので、R₁とR₂の電圧は同じ'],
+  mistakes:['R₁のことを聞かれているのに、bのグラフを読む', '電流から電圧を読む（逆向きの読み方）で迷う'],
+  context:'抵抗 R₁ と R₂ を並列につないだ。a点はR₁の枝、b点はR₂の枝、c点は合流したあとにある。グラフは、R₁（a）とR₂（b）にかかる電圧と電流の関係を表している。',
+  fig:[FIG.abc, FIG.graph],
+  problems:[
+  {id:'gr1', q:'電源の電圧を 4V にしたとき、c点を流れる電流は何Aか。',
+   given:[['電源','4V',''],['c点','合流したあと','a ＋ b']],
+   steps:[
+    {t:'並列なので、R₁にもR₂にも 4V がかかる。'},
+    {t:'aのグラフで 4V のところを読む。', ask:{p:'R₁（a）の電流は何A？', a:0.4, u:'A'}},
+    {t:'bのグラフで 4V のところを読む。', ask:{p:'R₂（b）の電流は何A？', a:0.1, u:'A'}},
+    {t:'c点は合流したあとなので、{{0.4|a点の電流}} ＋ {{0.1|b点の電流}} ＝ 0.5'},
+   ],
+   a:0.5, u:'A', wrongs:[[0.4,'それはa点だけです。合流したc点は a＋b。'],[0.1,'それはb点だけです。']],
+   point:'c点は、枝の電流の合計。'},
+  {id:'gr2', q:'b点に 0.2A の電流が流れているとき、R₁ の消費電力は何Wか。',
+   given:[['b点','0.2A','R₂の電流'],['知りたいもの','R₁の電力','R₁の電圧と電流が必要']],
+   steps:[
+    {t:'0.2A はR₂の情報。bのグラフで 0.2A になる電圧を読む（今回は電流 → 電圧の順）。', ask:{p:'R₂の電圧は何V？', a:8, u:'V'}},
+    {t:'並列なので、R₁にも同じ 8V がかかる。'},
+    {t:'知りたいのはR₁。aのグラフで 8V のところを読む。', ask:{p:'R₁の電流は何A？', a:0.8, u:'A'}},
+    {t:'電力 ＝ {{8|R₁の電圧（R₂と同じ）}} × {{0.8|R₁の電流（aのグラフ）}} ＝ 6.4'},
+   ],
+   a:6.4, u:'W', wrongs:[[1.6,'0.2AはR₂の電流です。R₁の電流は、aのグラフで読みます。']],
+   point:'b の情報で電圧を知り、a にもどって読む。'},
+  {id:'gr3', q:'電源を 8V にして、R₁ と R₂ を「直列」につなぎかえた。R₁ の消費電力は、並列のときの何分の1になるか。「□分の1」の□を答えよう。',
+   given:[['電源','8V',''],['並列のときのR₁の電力','6.4W','前の問題の答え']],
+   steps:[
+    {t:'グラフから抵抗を出す。R₁ ＝ 8 ÷ 0.8 ＝ 10Ω。R₂ ＝ 8 ÷ 0.2 ＝ 40Ω。'},
+    {t:'直列の全体の抵抗 ＝ 10 ＋ 40 ＝ 50Ω。電流 ＝ 8 ÷ 50 ＝ 0.16A。'},
+    {t:'R₁の電圧 ＝ {{0.16|直列の電流}} × {{10|R₁の抵抗}} ＝ 1.6V。R₁の電力 ＝ 1.6 × 0.16 ＝ 0.256W。'},
+    {t:'{{6.4|並列のときのR₁の電力}} ÷ {{0.256|直列のときのR₁の電力}} ＝ 25'},
+    {t:'速いやり方：R₁の電圧は 並列8V、直列1.6V で5倍ちがう。同じ抵抗なので電力は 5×5 ＝ 25倍ちがう。'},
+   ],
+   a:25, u:'', wrongs:[[5,'電圧が5倍ちがうと、同じ抵抗なら電流も5倍ちがいます。電力は5×5。']],
+   point:'「何倍になる？」の考え方は、ここでも使える。'},
+  ]
+},
+];
+
+// 回路図とグラフ（SVG）
+function box(cx, cy, label, labelY) {
+  return `<rect class="res" x="${cx-22}" y="${cy-9}" width="44" height="18" rx="2"/>` +
+    (label ? `<text class="lbl" x="${cx}" y="${labelY}">${label}</text>` : '');
+}
+function voltmeter(x1, x2, yFrom, name) {
+  const cx = (x1 + x2) / 2, cy = 150;
+  return `<path class="mw" d="M${x1} ${yFrom}V${cy}H${cx-14}M${x2} ${yFrom}V${cy}H${cx+14}"/>` +
+    `<circle class="meter" cx="${cx}" cy="${cy}" r="14"/><text class="ml" x="${cx}" y="${cy+5}">V</text>` +
+    (name ? `<text class="lbl" x="${cx}" y="${cy+32}">${name}</text>` : '');
+}
+function drawCircuit(f) {
+  const Y = 60, L = 30, R = 330, B = 196;
+  const widths = f.items.map(it => it.type === 'par' ? 130 : 80);
+  const total = widths.reduce((a, b) => a + b, 0);
+  let x = L + (R - L - total) / 2 - (f.ammeter ? 12 : 0);
+  let s = '', wire = [`M${L} ${Y}`];
+  f.items.forEach((it, i) => {
+    const w = widths[i], x0 = x, x1 = x + w;
+    if (it.type === 'par') {
+      const a = x0 + 12, b = x1 - 12, c = (x0 + x1) / 2;
+      wire.push(`H${a}`, `M${b} ${Y}`);
+      s += `<path class="w" d="M${a} 26V94M${b} 26V94M${a} 26H${c-22}M${c+22} 26H${b}M${a} 94H${c-22}M${c+22} 94H${b}"/>`;
+      s += `<circle class="dot" cx="${a}" cy="${Y}" r="3"/><circle class="dot" cx="${b}" cy="${Y}" r="3"/>`;
+      s += box(c, 26, it.top, 12) + box(c, 94, it.bottom, 120);
+      if (it.points) {
+        s += `<text class="pt" x="${a+14}" y="20">a</text><text class="pt" x="${a+14}" y="88">b</text><text class="pt" x="${x1+14}" y="${Y-8}">c</text>`;
+        s += `<circle class="pdot" cx="${a+14}" cy="26" r="3"/><circle class="pdot" cx="${a+14}" cy="94" r="3"/><circle class="pdot" cx="${x1+14}" cy="${Y}" r="3"/>`;
+      }
+      if (it.volt) s += voltmeter(a, b, 94, it.volt);
+    } else {
+      const c = (x0 + x1) / 2;
+      wire.push(`H${c-22}`, `M${c+22} ${Y}`);
+      s += box(c, Y, it.label, Y - 16);
+      if (it.volt) s += `<circle class="dot" cx="${c-32}" cy="${Y}" r="3"/><circle class="dot" cx="${c+32}" cy="${Y}" r="3"/>` + voltmeter(c - 32, c + 32, Y, it.volt);
+    }
+    x = x1;
+  });
+  wire.push(`H${R}`);
+  if (f.ammeter) {
+    wire.push(`V${Y+46}`, `M${R} ${Y+74}V${B}`);
+    s += `<circle class="meter" cx="${R}" cy="${Y+60}" r="14"/><text class="ml" x="${R}" y="${Y+65}">A</text>`;
+  } else wire.push(`V${B}`);
+  wire.push(`H186`, `M174 ${B}H${L}V${Y}`);
+  s += `<path class="w" d="${wire.join('')}"/>`;
+  s += `<path class="bat" d="M174 ${B-16}V${B+16}"/><path class="bat thick" d="M186 ${B-8}V${B+8}"/>`;
+  s += `<text class="pm" x="166" y="${B-16}">＋</text>`;
+  if (f.battery) s += `<text class="lbl" x="180" y="${B+36}">${f.battery}</text>`;
+  return `<svg class="fig" viewBox="0 0 360 240" role="img" aria-label="回路図">${s}</svg>`;
+}
+function drawGraph() {
+  const X = v => 52 + v * 34, Yp = i => 222 - i * 240;
+  let s = '';
+  for (let v = 0; v <= 8; v++) s += `<path class="grid" d="M${X(v)} ${Yp(0)}V${Yp(0.8)}"/><text class="tick" x="${X(v)}" y="${Yp(0)+18}">${v}</text>`;
+  for (let k = 0; k <= 8; k++) { const i = k / 10; s += `<path class="grid" d="M${X(0)} ${Yp(i)}H${X(8)}"/><text class="tick" x="${X(0)-18}" y="${Yp(i)+4}">${k === 0 ? 0 : i.toFixed(1)}</text>`; }
+  s += `<path class="axis" d="M${X(0)} ${Yp(0.8)-6}V${Yp(0)}H${X(8)+6}"/>`;
+  s += `<path class="gl" d="M${X(0)} ${Yp(0)}L${X(8)} ${Yp(0.8)}"/><path class="gl" d="M${X(0)} ${Yp(0)}L${X(8)} ${Yp(0.2)}"/>`;
+  s += `<text class="pt" x="${X(8)-58}" y="${Yp(0.8)+6}">a</text><text class="pt" x="${X(8)+10}" y="${Yp(0.2)+4}">b</text>`;
+  s += `<text class="axl" x="${X(4)}" y="${Yp(0)+40}">電圧［V］</text><text class="axl" x="${X(0)}" y="${Yp(0.8)-14}">電流［A］</text>`;
+  return `<svg class="fig" viewBox="0 0 360 272" role="img" aria-label="電圧と電流のグラフ">${s}</svg>`;
+}
+function drawFig(f) {
+  if (!f) return '';
+  const list = Array.isArray(f) ? f : [f];
+  return `<div class="figs">${list.map(x => x.type === 'graph' ? drawGraph() : drawCircuit(x)).join('')}</div>`;
+}
+
+// 画面と操作
+const KEY = 'denryu-drill-v1';
+let store = { solved: {}, chipSeen: false, theme: null };
+try { Object.assign(store, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
+
+const app = document.getElementById('app');
+let view = { name: 'home' };
+let ps = null; // 問題の状態
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function rich(t) {
+  return esc(t).replace(/\{\{(.+?)\|(.+?)\}\}/g, (_, v, n) => `<button class="chip" data-note="${v} ＝ ${n}">${v}</button>`);
+}
+function toNum(str) {
+  let s = String(str).normalize('NFKC').replace(/[−ー―‐]/g, '-').replace(/[^\d.\/\-]/g, '');
+  if (!s) return NaN;
+  if (s.includes('/')) { const [a, b] = s.split('/').map(Number); return b ? a / b : NaN; }
+  return Number(s);
+}
+const near = (x, a) => Math.abs(x - a) <= Math.max(1e-9, Math.abs(a) * 0.01);
+const unitDone = u => u.problems.filter(p => store.solved[p.id]).length;
+
+function applyTheme() {
+  const t = store.theme;
+  if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
+}
+function isDark() {
+  return store.theme ? store.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function header(back) {
+  return `<header class="top">
+    ${back ? `<button class="back" data-go="${back}" aria-label="もどる"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>` : '<span class="logo">電流ドリル</span>'}
+    <button class="theme" data-act="theme" aria-label="${isDark() ? '昼の色にする' : '夜の色にする'}">${isDark()
+      ? '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6 19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></svg>'
+      : '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>'}</button>
+  </header>`;
+}
+
+function renderHome() {
+  app.innerHTML = header() + `<main class="home">
+    <h1>電流のテスト対策</h1>
+    <ol class="units">${UNITS.map((u, i) => {
+      const d = unitDone(u), n = u.problems.length;
+      return `<li><button data-unit="${i}"><span class="num">${i + 1}</span><span class="uname">${u.name}</span><span class="prog ${d === n ? 'done' : ''}">${d === n ? '完了' : `${d} / ${n}`}</span></button></li>`;
+    }).join('')}</ol>
+  </main>`;
+}
+
+function renderUnit(ui) {
+  const u = UNITS[ui];
+  const next = u.problems.findIndex(p => !store.solved[p.id]);
+  app.innerHTML = header('home') + `<main class="unit">
+    <p class="crumb">${ui + 1}</p>
+    <h1>${u.name}</h1>
+    <p class="lead">${u.lead}</p>
+    <section class="card"><h2>おぼえること</h2><ul>${u.remember.map(r => `<li>${esc(r)}</li>`).join('')}</ul></section>
+    <details class="card"><summary>よくあるまちがい</summary><ul>${u.mistakes.map(r => `<li>${esc(r)}</li>`).join('')}</ul></details>
+    <div class="actions"><button class="primary" data-start="${next < 0 ? 0 : next}"${next < 0 ? ' data-reset="1"' : ''}>${next < 0 ? 'もう一度' : next === 0 ? 'はじめる' : 'つづきから'}</button></div>
+  </main>`;
+}
+
+function startProblem(ui, pi) {
+  ps = { ui, pi, shown: 0, asks: {}, wrong: 0, done: !!store.solved[UNITS[ui].problems[pi].id], msg: '', ok: false, note: {} };
+  if (ps.done) { ps.shown = UNITS[ui].problems[pi].steps.length; ps.ok = true; }
+  view = { name: 'problem' };
+  renderProblem();
+  window.scrollTo(0, 0);
+}
+
+function renderProblem() {
+  const u = UNITS[ps.ui], p = u.problems[ps.pi], n = u.problems.length;
+  const steps = p.steps.slice(0, ps.shown);
+  const given = p.given.map(([k, v, note]) => {
+    const show = note && note !== '問題文より' && note !== '表示より' && note !== '';
+    return `<div class="g"><span class="gk">${esc(k)}</span><span class="gv">${esc(v)}</span>${show ? `<span class="gn">${esc(note)}</span>` : ''}</div>`;
+  }).join('');
+  const hasChip = steps.some(s => s.t.includes('{{'));
+  const stepHtml = steps.map((s, i) => {
+    let ask = '';
+    if (s.ask) {
+      const st = ps.asks[i];
+      ask = st && st.ok
+        ? `<div class="ask done">${esc(s.ask.p)} <b>${s.ask.a} ${esc(s.ask.u)}</b></div>`
+        : `<div class="ask"><label>${esc(s.ask.p)}</label><span class="row"><input inputmode="decimal" data-ask="${i}" autocomplete="off"><span class="u">${esc(s.ask.u)}</span><button class="small" data-askcheck="${i}">OK</button><button class="small ghost" data-askshow="${i}">見る</button></span>${st && st.msg ? `<p class="fb bad">${esc(st.msg)}</p>` : ''}</div>`;
+    }
+    return `<li${i === ps.anim ? ' class="new"' : ''}><span class="sn">${i + 1}</span><div class="st"><p>${rich(s.t)}</p>${ask}${ps.note[i] ? `<p class="note">${esc(ps.note[i])}</p>` : ''}</div></li>`;
+  }).join('');
+  const remaining = p.steps.length - ps.shown;
+
+  let answer;
+  if (ps.ok) {
+    const last = ps.pi === n - 1;
+    answer = `<div class="result"><p class="fb good">正解　${esc(p.a)}${p.kind === 'choice' ? '' : ' ' + esc(p.u)}</p><p class="point">${esc(p.point)}</p></div>
+      <div class="actions"><button class="primary" data-act="${last ? 'unitdone' : 'next'}">${last ? '一覧にもどる' : '次の問題へ'}</button></div>`;
+  } else if (p.kind === 'choice') {
+    answer = `<div class="choices">${p.choices.map(c => `<button class="choice" data-choice="${esc(c)}">${esc(c)}</button>`).join('')}</div>${ps.msg ? `<p class="fb bad">${esc(ps.msg)}</p>` : ''}`;
+  } else {
+    answer = `<div class="answer"><input id="ans" inputmode="decimal" autocomplete="off" placeholder="答え" aria-label="答え"><span class="u">${esc(p.u)}</span><button class="primary" data-act="check">答え合わせ</button></div>${ps.msg ? `<p class="fb bad">${esc(ps.msg)}</p>` : ''}`;
+  }
+
+  const ctx = u.context ? `<p class="context">${esc(u.context)}</p>` : '';
+  app.innerHTML = header('unit') + `<main class="problem">
+    <div class="bar"><span>${esc(u.name)}</span><span>${ps.pi + 1} / ${n}</span></div>
+    <div class="track"><i style="width:${(ps.pi + (ps.ok ? 1 : 0)) / n * 100}%"></i></div>
+    ${ctx}${drawFig(p.fig || u.fig)}
+    <p class="q">${esc(p.q)}</p>
+    <div class="given">${given}</div>
+    ${steps.length ? `<ol class="steps">${stepHtml}</ol>${hasChip && !store.chipSeen ? '<p class="tip">点線の数字をタップすると、何の数字か出ます</p>' : ''}` : ''}
+    ${!ps.ok && remaining > 0 ? `<button class="hint" data-act="hint">ヒントを1つ見る<span>${ps.shown} / ${p.steps.length}</span></button>` : ''}
+    ${!ps.ok && remaining > 0 && ps.wrong >= 2 ? `<button class="hint quiet" data-act="all">解き方をぜんぶ見る</button>` : ''}
+    ${answer}
+  </main>`;
+  ps.anim = -1;
+  const a = document.getElementById('ans'); if (a && ps.focus) { a.focus(); ps.focus = false; }
+}
+
+function check(value) {
+  const p = UNITS[ps.ui].problems[ps.pi];
+  let ok, msg = '';
+  if (p.kind === 'choice') {
+    ok = value === p.a;
+    if (!ok) msg = (p.wrongs.find(w => w[0] === value) || [0, 'ちがいます。ヒントを見てみよう。'])[1];
+  } else {
+    const x = toNum(value);
+    if (Number.isNaN(x)) { ps.msg = '数字を入れてください。'; renderProblem(); return; }
+    ok = near(x, p.a);
+    if (!ok) {
+      const w = (p.wrongs || []).find(w => near(x, w[0]));
+      msg = w ? w[1] : (ps.shown < p.steps.length ? 'ちがいます。ヒントを1つ見てみよう。' : 'ちがいます。解き方をもう一度見なおそう。');
+    }
+  }
+  if (ok) {
+    ps.ok = true; ps.msg = ''; ps.shown = p.steps.length;
+    p.steps.forEach((s, i) => { if (s.ask) ps.asks[i] = { ok: true }; });
+    store.solved[p.id] = true; save();
+  } else { ps.wrong++; ps.msg = msg; ps.focus = true; }
+  renderProblem();
+}
+
+function checkAsk(i, reveal) {
+  const s = UNITS[ps.ui].problems[ps.pi].steps[i];
+  if (reveal) { ps.asks[i] = { ok: true }; renderProblem(); return; }
+  const el = document.querySelector(`[data-ask="${i}"]`), x = toNum(el.value);
+  if (near(x, s.ask.a)) ps.asks[i] = { ok: true };
+  else {
+    const w = (s.ask.wrongs || []).find(w => near(x, w[0]));
+    ps.asks[i] = { ok: false, msg: Number.isNaN(x) ? '数字を入れてください。' : w ? w[1] : 'もう一度。わからなければ「見る」。' };
+  }
+  renderProblem();
+}
+
+function render() {
+  applyTheme();
+  if (view.name === 'home') renderHome();
+  else if (view.name === 'unit') renderUnit(view.ui);
+  else renderProblem();
+}
+
+app.addEventListener('click', e => {
+  const t = e.target.closest('button'); if (!t) return;
+  const d = t.dataset;
+  if (d.go === 'home') { view = { name: 'home' }; render(); window.scrollTo(0, 0); }
+  else if (d.go === 'unit') { view = { name: 'unit', ui: ps.ui }; render(); window.scrollTo(0, 0); }
+  else if (d.unit) { view = { name: 'unit', ui: +d.unit }; render(); window.scrollTo(0, 0); }
+  else if (d.start) { if (d.reset) { UNITS[view.ui].problems.forEach(p => delete store.solved[p.id]); save(); } startProblem(view.ui, +d.start); }
+  else if (d.act === 'theme') { store.theme = isDark() ? 'light' : 'dark'; save(); render(); }
+  else if (d.act === 'hint') { ps.anim = ps.shown; ps.shown++; ps.msg = ''; renderProblem(); }
+  else if (d.act === 'all') { ps.shown = UNITS[ps.ui].problems[ps.pi].steps.length; renderProblem(); }
+  else if (d.act === 'check') check(document.getElementById('ans').value);
+  else if (d.act === 'next') startProblem(ps.ui, ps.pi + 1);
+  else if (d.act === 'unitdone') { view = { name: 'home' }; render(); window.scrollTo(0, 0); }
+  else if (d.choice) check(d.choice);
+  else if (d.askcheck) checkAsk(+d.askcheck, false);
+  else if (d.askshow) checkAsk(+d.askshow, true);
+  else if (t.classList.contains('chip')) {
+    const i = [...document.querySelectorAll('.steps > li')].indexOf(t.closest('li'));
+    ps.note[i] = ps.note[i] === d.note ? '' : d.note;
+    if (!store.chipSeen) { store.chipSeen = true; save(); }
+    renderProblem();
+  }
+});
+app.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  if (e.target.id === 'ans') check(e.target.value);
+  else if (e.target.dataset.ask) checkAsk(+e.target.dataset.ask, false);
+});
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { if (!store.theme) render(); });
+render();
+</script>
+</body>
+</html>
